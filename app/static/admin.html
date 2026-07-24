@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Admin</title>
+<link rel="stylesheet" href="/static/style.css?v=12">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Raven</div>
+    <nav>
+      <a href="/">Today</a>
+      <a href="/tasks">Tasks</a>
+      <a href="/notes">Notes</a>
+      <a href="/weekly-report">Weekly Report</a>
+      <a href="/agents">Agents</a>
+      <a href="/admin" class="active">Admin</a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <div class="container">
+      <header>
+        <h1>Admin</h1>
+      </header>
+
+      <section class="panel">
+        <h2>Profile</h2>
+        <div class="row" style="margin-bottom: 8px;">
+          <input type="text" id="profile-name" placeholder="Your name" style="flex: 1;">
+          <input type="text" id="profile-role" placeholder="Your role / title" style="flex: 1;">
+        </div>
+        <textarea id="profile-context" placeholder="Tell the AI who you are and what you do — this gets included when generating reports and running agents, so it can tailor tone and content to you."></textarea>
+        <div class="row between">
+          <span></span>
+          <button id="save-profile-btn">Save Profile</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>AI Provider</h2>
+        <div class="row" style="margin-bottom: 16px;">
+          <label class="provider-option">
+            <input type="radio" name="ai-provider" id="provider-ollama" value="ollama">
+            Ollama (local)
+          </label>
+          <label class="provider-option">
+            <input type="radio" name="ai-provider" id="provider-claude" value="claude">
+            Claude (API)
+          </label>
+        </div>
+
+        <div id="ollama-section">
+          <div class="row">
+            <select id="model-select" style="min-width: 220px;"></select>
+            <button id="save-model-btn">Use This Model</button>
+            <button class="secondary" id="refresh-models-btn">Refresh List</button>
+            <span id="model-status" style="font-size: 12px;"></span>
+          </div>
+          <div class="empty" id="model-empty-note" style="margin-top: 10px;"></div>
+        </div>
+
+        <div id="claude-section">
+          <div class="row" style="margin-bottom: 8px;">
+            <input type="password" id="claude-api-key" placeholder="sk-ant-..." style="flex: 1;" autocomplete="off">
+            <button id="save-claude-key-btn">Save Key</button>
+            <button class="secondary" id="test-claude-btn">Test Connection</button>
+          </div>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px;">Model: Claude Sonnet 5</div>
+          <div id="claude-status-note" style="font-size: 12px;"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Automatic Backups</h2>
+        <div class="form-group">
+          <label for="backup-schedule-select">Schedule</label>
+          <select id="backup-schedule-select">
+            <option value="off">Off</option>
+            <option value="hourly">Hourly</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </div>
+        <div style="font-size: 13px; color: var(--muted); margin-bottom: 10px;">
+          This backs up the database only. App code lives in GitHub — commit and push there to back that up.
+        </div>
+        <div class="row" style="margin-bottom: 12px; align-items: center; gap: 6px;">
+          <label for="backup-retention-input" style="font-size: 13px; color: var(--muted);">Keep last</label>
+          <input type="number" id="backup-retention-input" min="1" max="100" style="width: 70px;">
+          <label for="backup-retention-input" style="font-size: 13px; color: var(--muted);">local DB backups, once uploaded to B2</label>
+        </div>
+        <div class="row between">
+          <span id="backup-schedule-note" style="font-size: 12px; color: var(--muted);"></span>
+          <button id="save-backup-schedule-btn">Save Schedule</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Backblaze B2 (Cloud Storage)</h2>
+        <div style="font-size: 13px; color: var(--muted); margin-bottom: 10px;">
+          Connect a Backblaze B2 bucket so scheduled backups are uploaded off this machine. If your computer is lost or the app is deleted, you can restore from B2.
+        </div>
+        <div class="row" style="margin-bottom: 8px;">
+          <input type="text" id="b2-key-id" placeholder="Key ID" style="flex: 1;" autocomplete="off">
+          <input type="password" id="b2-application-key" placeholder="Application Key" style="flex: 1;" autocomplete="off">
+        </div>
+        <div class="row" style="margin-bottom: 8px;">
+          <input type="text" id="b2-bucket-name" placeholder="Bucket name" style="flex: 1;" autocomplete="off">
+        </div>
+        <div class="row" style="margin-bottom: 8px;">
+          <button id="save-b2-btn">Save</button>
+          <button class="secondary" id="test-b2-btn">Test Connection</button>
+          <span id="b2-status-note" style="font-size: 12px;"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Backups</h2>
+        <div class="row" style="margin-bottom: 12px;">
+          <button id="backup-now-btn">Run Backup Now</button>
+          <button class="button-danger" id="delete-all-backups-btn">Delete All Backups</button>
+          <span id="backup-status" style="font-size: 12px;"></span>
+        </div>
+        <div id="backups-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="row between">
+          <h2>Security Check</h2>
+          <button class="ghost-icon" id="open-security-help-btn" type="button" aria-label="What does this check?" title="What does this check?">?</button>
+        </div>
+        <div class="row" style="margin-bottom: 6px;">
+          <button id="run-check-btn">Run Security Check</button>
+          <span id="check-status" style="font-size: 12px;"></span>
+        </div>
+        <div class="empty" id="last-checked-note" style="margin-bottom: 6px;"></div>
+        <div id="check-regressed"></div>
+        <div id="check-results"></div>
+        <details class="agent-history" id="check-history-details" style="margin-top: 14px;">
+          <summary>Past runs</summary>
+          <ul class="history-list" id="check-history-list"><li class="empty">Loading...</li></ul>
+        </details>
+      </section>
+
+      <section class="panel danger-zone">
+        <h2>Danger Zone</h2>
+        <div class="row between" style="margin-bottom: 14px;">
+          <div>
+            <div>Delete all tasks</div>
+            <div class="agent-card-desc">Clears every task in your Tasks list. A backup is taken first.</div>
+          </div>
+          <div class="row">
+            <button class="button-danger" id="delete-tasks-btn">Delete All Tasks</button>
+            <span id="delete-tasks-status" style="font-size: 12px;"></span>
+          </div>
+        </div>
+        <div class="row between" style="margin-bottom: 14px;">
+          <div>
+            <div>Delete all entries</div>
+            <div class="agent-card-desc">Clears every logged note/update/decision/blocker from the Today page. A backup is taken first.</div>
+          </div>
+          <div class="row">
+            <button class="button-danger" id="delete-entries-btn">Delete All Entries</button>
+            <span id="delete-entries-status" style="font-size: 12px;"></span>
+          </div>
+        </div>
+        <div class="row between">
+          <div>
+            <div>Reset database</div>
+            <div class="agent-card-desc">Wipes projects, entries, tasks, file links, and agents. Your profile and AI model choice are kept. A backup is taken first.</div>
+          </div>
+          <div class="row">
+            <button class="button-danger" id="reset-db-btn">Reset Database</button>
+            <span id="reset-db-status" style="font-size: 12px;"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop hidden" id="reset-db-modal-backdrop">
+  <div class="modal">
+    <div class="row between">
+      <h2>Reset Database</h2>
+      <button class="secondary icon" id="reset-db-close-btn">Close</button>
+    </div>
+    <p style="font-size: 14px; color: var(--muted); margin-top: 0;">
+      This permanently wipes all projects, entries, tasks, file links, and agents. A backup is created first, but this app has no undo. Type <strong>DELETE</strong> below to confirm.
+    </p>
+    <div class="form-group">
+      <input type="text" id="reset-db-confirm-input" placeholder="Type DELETE to confirm" autocomplete="off">
+    </div>
+    <div class="row between">
+      <span></span>
+      <button class="button-danger" id="reset-db-confirm-btn" disabled>Reset Database</button>
+    </div>
+  </div>
+</div>
+
+<!-- Security Check help slide-over -->
+<div class="help-backdrop" id="security-help-backdrop">
+  <div class="help-panel">
+    <div class="row between" style="margin-bottom: 2px;">
+      <h3>How the Security Check works</h3>
+      <button class="ghost-icon" id="close-security-help-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="sub">What each check looks at, and how the vulnerability scan actually works.</div>
+
+    <span class="help-provider-tag" style="color: var(--muted);">Basic checks</span>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Server bind address</strong> — confirms Raven only listens on 127.0.0.1 (this machine), not reachable from your network.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Debug/reload mode</strong> — flags whether the server is running with <code>--reload</code>. Harmless on localhost, just a heads-up if this were ever exposed beyond it.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Database file</strong> — reports where your data lives and its size, mostly informational.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag claude">Vulnerability scanning</span>
+    <div class="help-step">
+      <span class="num">!</span>
+      <p><strong>Dependency vulnerabilities (pip-audit)</strong> is the actual vulnerability scan — it cross-references your installed Python packages (pinned in <code>requirements.txt</code>) against public CVE/advisory databases and flags any with a known, published vulnerability.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Outdated packages</strong> is different from a vulnerability — it compares your installed version of each package against the latest release on PyPI, so you know if you're behind even before a CVE exists for the old version.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Ollama version</strong> does the same comparison for Ollama itself, checked against its latest release on GitHub, since it's a real dependency this app talks to.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">Runs automatically</span>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p>All of the above runs on its own about 15 seconds after Raven starts, then every 24 hours — you don't have to remember to click the button.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p>Every run is saved. <strong>Past runs</strong> below shows history, and a <strong>regressed</strong> note appears above the results if something that used to pass is now failing, or a failure's details changed since the last check.</p>
+    </div>
+  </div>
+</div>
+
+<script src="/static/status.js?v=1"></script>
+<script src="/static/admin.js?v=8"></script>
+</body>
+</html>

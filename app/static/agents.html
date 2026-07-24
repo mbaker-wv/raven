@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Agents</title>
+<link rel="stylesheet" href="/static/style.css?v=12">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Raven</div>
+    <nav>
+      <a href="/">Today</a>
+      <a href="/tasks">Tasks</a>
+      <a href="/notes">Notes</a>
+      <a href="/weekly-report">Weekly Report</a>
+      <a href="/agents" class="active">Agents</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <div class="container">
+      <header>
+        <h1>Agents</h1>
+        <div class="row">
+          <button class="ghost-icon" id="open-guide-btn" type="button" aria-label="How agents work" title="How agents work">?</button>
+          <button id="open-modal-btn">+ New Agent</button>
+        </div>
+      </header>
+
+      <section class="panel">
+        <h2>Your Agents</h2>
+        <div id="agents-container"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- New Agent modal -->
+<div class="modal-backdrop hidden" id="agent-modal-backdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="agent-modal-title">New agent</h2>
+        <div class="sub">Define what it does, which model runs it, and what feeds it.</div>
+      </div>
+      <div class="modal-head-actions">
+        <button class="ghost-icon" id="open-help-btn" type="button" aria-label="How agents work" title="How agents work">?</button>
+        <button class="ghost-icon" id="close-modal-btn" type="button" aria-label="Close">✕</button>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <p class="section-label">Basics</p>
+      <div class="field-row">
+        <div class="form-group">
+          <label for="agent-name">Name</label>
+          <input type="text" id="agent-name" placeholder="e.g. Standup Summarizer">
+        </div>
+        <div class="form-group">
+          <label for="agent-description">Short description</label>
+          <input type="text" id="agent-description" placeholder="What it's for">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="agent-prompt">Instructions</label>
+        <textarea id="agent-prompt" placeholder="e.g. 'Summarize the activity below into 3 bullet points for a standup update.'"></textarea>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <p class="section-label">AI model</p>
+      <div class="provider-grid">
+        <div class="provider-card selected" id="card-ollama" data-provider="ollama" style="--pc: var(--ollama);">
+          <div class="pc-top">
+            <span class="pc-name">Ollama <span class="pc-dot">· local</span></span>
+            <span class="pc-radio"></span>
+          </div>
+          <div class="pc-desc">Runs on this machine. Free, private, no internet required.</div>
+        </div>
+        <div class="provider-card" id="card-claude" data-provider="claude" style="--pc: var(--claude);">
+          <div class="pc-top">
+            <span class="pc-name">Claude <span class="pc-dot">· cloud</span></span>
+            <span class="pc-radio"></span>
+          </div>
+          <div class="pc-desc">Uses your Claude API key. Stronger reasoning, costs per run.</div>
+        </div>
+      </div>
+      <input type="hidden" id="agent-provider" value="ollama">
+    </div>
+
+    <div class="section-block">
+      <p class="section-label">Skills</p>
+      <div class="skills-list">
+        <label class="skill-check"><input type="checkbox" class="agent-skill" value="create_task"> Create a task</label>
+        <label class="skill-check"><input type="checkbox" class="agent-skill" value="complete_task"> Complete a task</label>
+        <label class="skill-check"><input type="checkbox" class="agent-skill" value="log_entry"> Log an entry</label>
+      </div>
+      <div class="chain-preview" id="skills-ollama-hint">Skills only run for Claude-powered agents — pick Claude above to enable them.</div>
+    </div>
+
+    <div class="section-block">
+      <p class="section-label">Context &amp; chaining</p>
+      <div class="form-group">
+        <label for="agent-context-mode">Context</label>
+        <select id="agent-context-mode">
+          <option value="none">No context (prompt only)</option>
+          <option value="digest">Recent activity digest</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="agent-runafter">Runs after</label>
+        <select id="agent-runafter">
+          <option value="">— Independent, runs on its own —</option>
+        </select>
+      </div>
+      <div class="chain-preview" id="chain-preview"></div>
+    </div>
+
+    <div class="row between">
+      <span></span>
+      <button id="create-agent-btn">Create agent</button>
+    </div>
+  </div>
+</div>
+
+<!-- Setup help slide-over -->
+<div class="help-backdrop" id="help-backdrop">
+  <div class="help-panel">
+    <div class="row between" style="margin-bottom: 2px;">
+      <h3>How agents work</h3>
+      <button class="ghost-icon" id="close-help-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="sub">What an agent needs, how skills work, and a couple of examples to copy.</div>
+
+    <span class="help-provider-tag" style="color: var(--muted);">The basics</span>
+    <div class="help-step">
+      <span class="num">1</span>
+      <p><strong>Name &amp; description</strong> are just for your own reference in the list — they don't affect the run.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">2</span>
+      <p><strong>Instructions</strong> are the prompt sent to the model. Be specific and tell it to reference real data (task names, digest contents) instead of generic advice.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">Context</span>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>No context</strong> runs on your instructions alone — good for a fixed prompt that doesn't depend on recent activity.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Recent activity digest</strong> appends entries/tasks from a date range you pick each run, so the agent can reference what actually happened.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag ollama">Ollama (local)</span>
+    <div class="help-step">
+      <span class="num">1</span>
+      <p>Install Ollama from <code>ollama.com</code> and make sure it's running in the background.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">2</span>
+      <p>Pull a model, e.g. <code>ollama pull llama3.2:3b</code>, then pick it as the default in <a href="/admin">Admin → AI Provider</a>.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">3</span>
+      <p>That's it — no key needed. Agents set to Ollama use whatever model is active there.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag claude">Claude (cloud)</span>
+    <div class="help-step">
+      <span class="num">1</span>
+      <p>Grab an API key from <code>console.anthropic.com</code>.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">2</span>
+      <p>Paste it into <a href="/admin">Admin → AI Provider</a> and save — Raven checks it right away and shows a connected/error status.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">3</span>
+      <p>Agents set to Claude use this key. Usage is billed to your Anthropic account per run.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">Chaining agents</span>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p>Set <strong>Runs after</strong> to another agent to build a pipeline — e.g. a digest builder feeds a summarizer. Clicking Run on the downstream agent runs the whole chain, and each link keeps its own run history.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag claude">Skills (Claude only)</span>
+    <div class="help-step">
+      <span class="num">!</span>
+      <p>Skills let an agent take real actions instead of just describing them. They only fire for Claude-powered agents — Ollama can't reliably call tools yet, so its agents stay text-only.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Create a task</strong> — e.g. <em>"Review the digest. For anything that needs follow-up but isn't already a task, create one with a due date."</em></p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Complete a task</strong> — e.g. <em>"If the digest shows a task's work was actually finished, mark it complete."</em></p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Log an entry</strong> — e.g. <em>"After reviewing, log a one-line note summarizing what you found."</em></p>
+    </div>
+    <div class="help-step">
+      <span class="num">i</span>
+      <p>Every run shows an "Actions taken" list under its output, so you can see exactly what got created or changed — nothing happens silently.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">Example agent</span>
+    <div class="help-step">
+      <span class="num">★</span>
+      <p><strong>Task Sweeper</strong> — Claude · Recent activity digest · Skills: Complete a task, Log an entry<br>
+      Prompt: <em>"Review the activity digest below. If a task's due date has passed and the entries show it was actually finished, mark it complete. Then log a one-line note summarizing what you closed and what's still open."</em></p>
+    </div>
+  </div>
+</div>
+
+<script src="/static/status.js?v=1"></script>
+<script src="/static/markdown.js?v=1"></script>
+<script src="/static/agents.js?v=8"></script>
+</body>
+</html>

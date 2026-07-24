@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Weekly Report</title>
+<link rel="stylesheet" href="/static/style.css?v=12">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Raven</div>
+    <nav>
+      <a href="/">Today</a>
+      <a href="/tasks">Tasks</a>
+      <a href="/notes">Notes</a>
+      <a href="/weekly-report" class="active">Weekly Report</a>
+      <a href="/agents">Agents</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <div class="container">
+      <header>
+        <h1>Weekly Report</h1>
+      </header>
+
+      <section class="panel">
+        <div class="row between">
+          <h2>Report Generator</h2>
+          <button class="secondary" id="copy-polished-btn">Copy</button>
+        </div>
+        <div class="row" style="margin-bottom: 14px;">
+          <button id="polish-btn">Generate Report</button>
+          <span id="polish-status" style="font-size: 12px; color: var(--muted);"></span>
+        </div>
+        <div id="polished-output">
+          <div class="empty">Pick a range in Raw Digest below, then click "Generate Report".</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="row between">
+          <h2>Raw Digest</h2>
+          <button class="secondary" id="copy-raw-btn">Copy</button>
+        </div>
+        <div class="row" id="preset-filter" style="margin-bottom: 14px;">
+          <button class="secondary preset-btn" data-days="7">7 Days</button>
+          <button class="secondary preset-btn" data-days="14">14 Days</button>
+          <button class="secondary preset-btn" data-days="30">30 Days</button>
+        </div>
+        <div id="report-output">
+          <div class="empty">Pick a range above to build the digest.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="/static/status.js?v=1"></script>
+<script src="/static/markdown.js?v=1"></script>
+<script src="/static/weekly-report.js?v=7"></script>
+</body>
+</html>

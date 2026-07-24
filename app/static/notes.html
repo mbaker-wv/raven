@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Notes</title>
+<link rel="stylesheet" href="/static/style.css?v=18">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Raven</div>
+    <nav>
+      <a href="/">Today</a>
+      <a href="/tasks">Tasks</a>
+      <a href="/notes" class="active">Notes</a>
+      <a href="/weekly-report">Weekly Report</a>
+      <a href="/agents">Agents</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <div class="container">
+      <header>
+        <h1>Notes</h1>
+      </header>
+
+      <section class="panel">
+        <div class="row" id="note-tabs" style="margin-bottom: 14px;"></div>
+
+        <div class="note-editor">
+          <div class="note-toolbar">
+            <button type="button" class="ghost-icon" id="md-bold-btn" title="Bold"><strong>B</strong></button>
+            <button type="button" class="ghost-icon" id="md-italic-btn" title="Italic"><em>I</em></button>
+            <button type="button" class="ghost-icon" id="md-heading-btn" title="Heading">H</button>
+            <button type="button" class="ghost-icon" id="md-bullet-btn" title="Bullet list">•</button>
+            <button type="button" class="ghost-icon" id="md-numbered-btn" title="Numbered list">1.</button>
+            <span class="spacer"></span>
+            <span class="note-time" id="save-status"></span>
+          </div>
+          <div class="polished-text note-editable" id="note-content" contenteditable="true" data-placeholder="Click to start writing..."></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="/static/status.js?v=1"></script>
+<script src="/static/markdown.js?v=1"></script>
+<script src="/static/notes.js?v=4"></script>
+</body>
+</html>

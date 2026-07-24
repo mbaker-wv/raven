@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Today</title>
+<link rel="stylesheet" href="/static/style.css?v=15">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Raven</div>
+    <nav>
+      <a href="/" class="active">Today</a>
+      <a href="/tasks">Tasks</a>
+      <a href="/notes">Notes</a>
+      <a href="/weekly-report">Weekly Report</a>
+      <a href="/agents">Agents</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <div class="container">
+      <header>
+        <div>
+          <div class="eyebrow">Today</div>
+          <h1 id="greeting">Hello</h1>
+        </div>
+        <div class="date" id="today-date"></div>
+      </header>
+
+      <section class="panel">
+        <h2>Reminders</h2>
+        <ul class="list" id="reminders-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Open Tasks</h2>
+        <ul class="list" id="tasks-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>What I Did Today</h2>
+        <ul class="list" id="entries-list"></ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="/static/status.js?v=1"></script>
+<script src="/static/app.js?v=7"></script>
+</body>
+</html>

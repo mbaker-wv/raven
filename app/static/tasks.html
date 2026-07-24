@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Tasks</title>
+<link rel="stylesheet" href="/static/style.css?v=15">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Raven</div>
+    <nav>
+      <a href="/">Today</a>
+      <a href="/tasks" class="active">Tasks</a>
+      <a href="/notes">Notes</a>
+      <a href="/weekly-report">Weekly Report</a>
+      <a href="/agents">Agents</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <div class="container">
+      <header>
+        <h1>Tasks</h1>
+        <div class="row">
+          <button id="open-add-task-btn">Add Tasks</button>
+        </div>
+      </header>
+
+      <section class="panel" id="tasks-panel">
+        <div class="row between">
+          <h2>Tasks</h2>
+        </div>
+        <div class="row" style="margin-bottom: 10px;">
+          <input type="text" id="task-search" placeholder="Search tasks..." style="flex: 1;">
+        </div>
+        <div class="row" id="view-toggle" style="margin-bottom: 10px;">
+          <button class="secondary view-btn active" data-view="active">Active</button>
+          <button class="secondary view-btn" data-view="archived">Archived</button>
+        </div>
+        <div class="row" id="status-filter" style="margin-bottom: 14px;">
+          <button class="secondary filter-btn active" data-status="all">All</button>
+          <button class="secondary filter-btn" data-status="new">New</button>
+          <button class="secondary filter-btn" data-status="inprogress">In Progress</button>
+          <button class="secondary filter-btn" data-status="blocked">Blocked</button>
+          <button class="secondary filter-btn" data-status="closed">Completed</button>
+        </div>
+        <div id="tasks-container"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop hidden" id="add-task-modal-backdrop">
+  <div class="modal">
+    <div class="row between">
+      <h2>Add Task</h2>
+      <button class="secondary icon" id="add-task-close-btn">Close</button>
+    </div>
+
+    <div class="form-group">
+      <label for="new-task-title">Title</label>
+      <input type="text" id="new-task-title" placeholder="What needs to get done?">
+    </div>
+
+    <div class="form-group">
+      <label for="new-task-due">Due Date</label>
+      <input type="date" id="new-task-due">
+    </div>
+
+    <div class="form-group">
+      <label for="new-task-recurrence">Repeat</label>
+      <select id="new-task-recurrence">
+        <option value="none">Does not repeat</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </div>
+
+    <div class="form-group hidden" id="new-task-weekdays">
+      <label>Repeat on</label>
+      <div class="row day-toggle-row"></div>
+    </div>
+
+    <div class="form-group hidden" id="new-task-monthdays">
+      <label>Repeat on day(s) of month</label>
+      <div class="row day-toggle-row day-toggle-grid"></div>
+    </div>
+
+    <div class="form-group">
+      <label for="new-task-tags">Tags</label>
+      <input type="text" id="new-task-tags" placeholder="e.g. urgent, client-x, followup">
+    </div>
+
+    <div class="form-group">
+      <label for="new-task-note">Notes (optional)</label>
+      <textarea id="new-task-note" placeholder="Add a note about where I left off..."></textarea>
+    </div>
+
+    <div class="row between" style="margin-top: 4px;">
+      <span></span>
+      <button id="create-task-btn">Create Task</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="task-modal-backdrop">
+  <div class="modal">
+    <div class="row between">
+      <h2 id="modal-task-title"></h2>
+      <button class="secondary icon" id="modal-close-btn">Close</button>
+    </div>
+    <div class="row" style="margin-bottom: 16px;">
+      <select id="modal-status"></select>
+      <label for="modal-due" style="font-size: 13px; color: var(--muted);">Due Date</label>
+      <input type="date" id="modal-due">
+      <label for="modal-recurrence" style="font-size: 13px; color: var(--muted);">Repeat</label>
+      <select id="modal-recurrence">
+        <option value="none">Does not repeat</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+      <button class="secondary" id="modal-save-btn">Save</button>
+      <span class="spacer"></span>
+      <button class="secondary" id="modal-delete-btn" style="color: var(--danger); border-color: var(--danger);">Delete</button>
+    </div>
+
+    <div class="form-group hidden" id="modal-weekdays">
+      <label>Repeat on</label>
+      <div class="row day-toggle-row"></div>
+    </div>
+
+    <div class="form-group hidden" id="modal-monthdays">
+      <label>Repeat on day(s) of month</label>
+      <div class="row day-toggle-row day-toggle-grid"></div>
+    </div>
+
+    <div class="section-heading">Tags</div>
+    <div class="tag-chips" id="modal-tag-chips"></div>
+    <div class="row" style="margin-bottom: 16px;">
+      <input type="text" id="modal-tag-input" placeholder="Type a tag, press Enter" list="tag-suggestions" style="flex: 1;">
+      <datalist id="tag-suggestions"></datalist>
+    </div>
+
+    <div class="section-heading">Where I left off</div>
+    <ul class="notes-timeline" id="modal-notes"></ul>
+    <textarea id="modal-note-input" placeholder="Add a note about where you left off..."></textarea>
+    <button id="modal-add-note-btn">Add Note</button>
+  </div>
+</div>
+
+<script src="/static/status.js?v=1"></script>
+<script src="/static/tasks.js?v=9"></script>
+</body>
+</html>
