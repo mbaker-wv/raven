@@ -136,8 +136,7 @@ To pin it to your desktop:
   3. A shortcut named "start_raven.bat - Shortcut" will appear on your
      desktop. Rename it to "Raven" if you'd like.
 
-Give it the Raven icon (black and purple raven, included as
-"raven_icon.ico" in this folder):
+Give it the Raven icon (included as "raven_icon.ico" in this folder):
   1. Right-click the desktop shortcut > Properties
   2. Click "Change Icon..."
   3. Click "Browse..." and select "raven_icon.ico" inside the folder you
