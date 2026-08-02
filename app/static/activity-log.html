@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Raven — Weekly Report</title>
-<link rel="stylesheet" href="/static/style.css?v=12">
+<title>Raven — Activity Log</title>
+<link rel="stylesheet" href="/static/style.css?v=19">
 </head>
 <body>
 <div class="app-shell">
@@ -13,7 +13,7 @@
       <a href="/">Today</a>
       <a href="/tasks">Tasks</a>
       <a href="/notes">Notes</a>
-      <a href="/weekly-report" class="active">Weekly Report</a>
+      <a href="/activity-log" class="active">Activity Log</a>
       <a href="/agents">Agents</a>
       <a href="/admin">Admin</a>
     </nav>
@@ -25,22 +25,12 @@
   <main class="main-content">
     <div class="container">
       <header>
-        <h1>Weekly Report</h1>
+        <h1>Activity Log</h1>
       </header>
 
-      <section class="panel">
-        <div class="row between">
-          <h2>Report Generator</h2>
-          <button class="secondary" id="copy-polished-btn">Copy</button>
-        </div>
-        <div class="row" style="margin-bottom: 14px;">
-          <button id="polish-btn">Generate Report</button>
-          <span id="polish-status" style="font-size: 12px; color: var(--muted);"></span>
-        </div>
-        <div id="polished-output">
-          <div class="empty">Pick a range in Raw Digest below, then click "Generate Report".</div>
-        </div>
-      </section>
+      <div class="empty" style="margin-bottom: 16px;">
+        Looking for a written report? See <a href="/agents">Agents</a> — "Weekly Status Report" and "Leadership Front-Burner Update" turn this into polished write-ups.
+      </div>
 
       <section class="panel">
         <div class="row between">
@@ -61,7 +51,6 @@
 </div>
 
 <script src="/static/status.js?v=1"></script>
-<script src="/static/markdown.js?v=1"></script>
-<script src="/static/weekly-report.js?v=7"></script>
+<script src="/static/activity-log.js?v=1"></script>
 </body>
 </html>

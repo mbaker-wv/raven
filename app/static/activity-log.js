@@ -29,7 +29,6 @@ function escapeHtml(str) {
 }
 
 let lastDigest = null;
-let lastPolished = null;
 let currentStart = null;
 let currentEnd = null;
 let projects = [];
@@ -104,15 +103,12 @@ async function generateReport() {
   const output = document.getElementById("report-output");
   output.innerHTML = "";
   output.appendChild(renderList(flatItems(digest), "Nothing logged in this range."));
-
-  lastPolished = null;
-  document.getElementById("polished-output").innerHTML = '<div class="empty">Click "Generate Report" above once the digest looks right.</div>';
 }
 
 function digestToText() {
   if (!lastDigest) return "";
   const items = flatItems(lastDigest);
-  const lines = [`Weekly Report: ${lastDigest.start} to ${lastDigest.end}`, ""];
+  const lines = [`Activity Log: ${lastDigest.start} to ${lastDigest.end}`, ""];
   lines.push(...(items.length ? items.map((i) => `- ${i.text}`) : ["Nothing logged in this range."]));
   return lines.join("\n").trim();
 }
@@ -120,34 +116,18 @@ function digestToText() {
 async function copyText(text, label) {
   if (!text) return;
   await navigator.clipboard.writeText(text);
-  flashStatus("polish-status", `${label} copied!`);
+  flashStatus("copy-raw-btn", `${label} copied!`);
 }
 
 function flashStatus(elId, message, isError) {
   const el = document.getElementById(elId);
+  const original = el.textContent;
   el.textContent = message;
   el.style.color = isError ? "var(--danger)" : "var(--ok)";
-  setTimeout(() => (el.textContent = ""), 3000);
-}
-
-async function polishReport() {
-  if (!lastDigest) return;
-  const btn = document.getElementById("polish-btn");
-  const output = document.getElementById("polished-output");
-  btn.disabled = true;
-  flashStatus("polish-status", "Asking Ollama...", false);
-  output.innerHTML = '<div class="empty">Generating...</div>';
-  try {
-    const result = await api(`/reports/weekly/polish?start=${currentStart}&end=${currentEnd}`, { method: "POST" });
-    lastPolished = result.polished;
-    output.innerHTML = `<div class="polished-text">${renderMarkdown(result.polished)}</div>`;
-    document.getElementById("polish-status").textContent = "";
-  } catch (err) {
-    output.innerHTML = `<div class="error-text">${escapeHtml(err.message)}</div>`;
-    flashStatus("polish-status", "Failed", true);
-  } finally {
-    btn.disabled = false;
-  }
+  setTimeout(() => {
+    el.textContent = original;
+    el.style.color = "";
+  }, 1500);
 }
 
 function setActivePreset(days) {
@@ -163,9 +143,7 @@ function applyPreset(days) {
   generateReport();
 }
 
-document.getElementById("polish-btn").addEventListener("click", polishReport);
-document.getElementById("copy-raw-btn").addEventListener("click", () => copyText(digestToText(), "Raw digest"));
-document.getElementById("copy-polished-btn").addEventListener("click", () => copyText(lastPolished, "Polished report"));
+document.getElementById("copy-raw-btn").addEventListener("click", () => copyText(digestToText(), "Digest"));
 document.querySelectorAll(".preset-btn").forEach((btn) => {
   btn.addEventListener("click", () => applyPreset(Number(btn.dataset.days)));
 });

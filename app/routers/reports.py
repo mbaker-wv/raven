@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..ai_client import call_ai
 from ..database import get_db
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -110,43 +109,6 @@ def digest_to_text(digest: dict) -> str:
     return "\n".join(lines)
 
 
-def build_prompt(digest: dict, settings: "models.Settings | None" = None) -> str:
-    name = settings.profile_name if settings else None
-    role = settings.profile_role if settings else None
-    header = [
-        "You are writing a concise, director-ready weekly status report from the raw activity log below.",
-        f"Reporting period: {digest['start']} to {digest['end']}.",
-    ]
-    if name or role:
-        byline = f"{name}, {role}" if name and role else (name or role)
-        header.append(
-            f"Start the report with a byline on its own line reading exactly 'Prepared by: {byline}', "
-            "followed by the reporting period on the next line, before any section headers."
-        )
-    header += [
-        "Write a 'What Was Done' section as a bulleted list (one bullet per item of work, not a paragraph).",
-        "Then write a separate 'Blockers' section as a bulleted list of anything currently blocked or waiting on someone else. "
-        "If there are no blockers, write a single bullet saying so.",
-        "Then write a separate 'Next Week' section as a bulleted list of planned or upcoming work.",
-        "Keep each bullet to one concise sentence. Be direct and factual. Do not invent information that isn't in the log.",
-        "If an 'Earlier context' section is present, use it only as background to understand a task's history — "
-        "do not describe it as work done during this reporting period.",
-        "",
-    ]
-    return "\n".join(header) + "\n" + digest_to_text(digest)
-
-
 @router.get("/weekly")
 def weekly_report(start: date | None = None, end: date | None = None, db: Session = Depends(get_db)):
     return build_digest(db, start, end)
-
-
-@router.post("/weekly/polish")
-def polish_weekly_report(start: date | None = None, end: date | None = None, db: Session = Depends(get_db)):
-    digest = build_digest(db, start, end)
-    settings = db.query(models.Settings).first()
-    prompt = build_prompt(digest, settings)
-    if settings and settings.profile_context:
-        prompt = f"Context about the user writing this report: {settings.profile_context}\n\n{prompt}"
-    polished = call_ai(prompt, db)
-    return {"digest": digest, "polished": polished}
