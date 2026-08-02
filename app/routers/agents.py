@@ -64,6 +64,8 @@ def delete_agent(agent_id: int, db: Session = Depends(get_db)):
     agent = db.get(models.Agent, agent_id)
     if not agent:
         raise HTTPException(404, "Agent not found")
+    db.query(models.AgentRun).filter(models.AgentRun.agent_id == agent_id).delete()
+    db.query(models.Agent).filter(models.Agent.run_after_agent_id == agent_id).update({"run_after_agent_id": None})
     db.delete(agent)
     db.commit()
 
@@ -76,6 +78,13 @@ def _execute_agent(db: Session, agent: models.Agent, start: date | None, end: da
     prompt_parts = [agent.system_prompt]
 
     settings = db.query(models.Settings).first()
+    if settings and (settings.profile_name or settings.profile_role):
+        byline = (
+            f"{settings.profile_name}, {settings.profile_role}"
+            if settings.profile_name and settings.profile_role
+            else (settings.profile_name or settings.profile_role)
+        )
+        prompt_parts.append(f"\nUser's name and role, for a byline if the instructions call for one: {byline}")
     if settings and settings.profile_context:
         prompt_parts.append(f"\nContext about the user: {settings.profile_context}")
 
@@ -141,3 +150,12 @@ def list_agent_runs(agent_id: int, db: Session = Depends(get_db)):
         .order_by(models.AgentRun.created_at.desc())
         .all()
     )
+
+
+@router.delete("/{agent_id}/runs/{run_id}", status_code=204)
+def delete_agent_run(agent_id: int, run_id: int, db: Session = Depends(get_db)):
+    run = db.get(models.AgentRun, run_id)
+    if not run or run.agent_id != agent_id:
+        raise HTTPException(404, "Run not found")
+    db.delete(run)
+    db.commit()

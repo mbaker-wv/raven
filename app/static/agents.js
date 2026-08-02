@@ -157,7 +157,21 @@ async function loadHistory(agentId, card) {
   for (const r of runs) {
     const li = document.createElement("li");
     const time = new Date(r.created_at + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-    li.innerHTML = `<div class="note-time">${time}</div>${renderMarkdown(r.output)}${renderToolCalls(r.tool_calls)}`;
+    li.innerHTML = `
+      <div class="row between">
+        <div class="note-time">${time}</div>
+        <button class="secondary run-delete-btn" style="padding: 2px 8px; font-size: 11px; color: var(--danger); border-color: var(--danger);">Delete</button>
+      </div>
+      ${renderMarkdown(r.output)}${renderToolCalls(r.tool_calls)}
+    `;
+    li.querySelector(".run-delete-btn").addEventListener("click", async () => {
+      if (!confirm("Delete this run? This can't be undone.")) return;
+      await api(`/agents/${agentId}/runs/${r.id}`, { method: "DELETE" });
+      li.remove();
+      if (!list.querySelector("li")) {
+        list.innerHTML = '<li class="empty">No runs yet.</li>';
+      }
+    });
     list.appendChild(li);
   }
 }
