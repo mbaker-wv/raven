@@ -28,11 +28,76 @@ function flash(elId, message, isError) {
 
 let currentSettings = null;
 
+// ---- Collapsible admin-group sections: remember open/closed state per section ----
+
+function initCollapsibleGroups() {
+  document.querySelectorAll(".admin-group[data-group-id]").forEach((el) => {
+    const key = `admin-group-${el.dataset.groupId}`;
+    const saved = localStorage.getItem(key);
+    if (saved === "open") el.open = true;
+    else if (saved === "closed") el.open = false;
+    el.addEventListener("toggle", () => localStorage.setItem(key, el.open ? "open" : "closed"));
+  });
+}
+
+// ---- At-a-glance status shown in each section's header, even while collapsed ----
+
+function updateProfileSummary() {
+  const sub = document.getElementById("profile-group-sub");
+  const bits = [currentSettings.profile_name, currentSettings.profile_role].filter(Boolean);
+  sub.textContent = bits.length ? bits.join(" · ") : "Not set";
+}
+
+function updateProviderSummary() {
+  const sub = document.getElementById("provider-group-sub");
+  if ((currentSettings.ai_provider || "ollama") === "claude") {
+    const status =
+      currentSettings.claude_status === "ok"
+        ? "connected"
+        : currentSettings.claude_status === "error"
+        ? "connection error"
+        : currentSettings.claude_api_key_set
+        ? "key saved, not tested"
+        : "no key saved";
+    sub.textContent = `Claude · ${status}`;
+  } else {
+    sub.textContent = `Ollama · ${currentSettings.ollama_model || "no model selected"}`;
+  }
+}
+
+function updateBackupsSummary() {
+  const sub = document.getElementById("backups-group-sub");
+  const schedule = currentSettings.backup_schedule || "off";
+  const scheduleBit = schedule === "off" ? "automatic backups off" : `${schedule} backups`;
+  const b2Bit =
+    currentSettings.b2_status === "ok"
+      ? "B2 connected"
+      : currentSettings.b2_key_id
+      ? "B2 saved, not tested"
+      : "B2 not configured";
+  sub.textContent = `${scheduleBit} · ${b2Bit}`;
+}
+
+function updateSecuritySummary(report) {
+  const sub = document.getElementById("security-group-sub");
+  if (!report || !report.results || report.results.length === 0) {
+    sub.textContent = "Not checked yet";
+    return;
+  }
+  const failCount = report.results.filter((r) => r.status === "fail" || r.status === "error").length;
+  const summary = failCount > 0 ? `${failCount} issue${failCount === 1 ? "" : "s"} found` : "All clear";
+  const when = report.checked_at
+    ? new Date(report.checked_at + "Z").toLocaleDateString([], { month: "short", day: "numeric" })
+    : null;
+  sub.textContent = when ? `${summary} · checked ${when}` : summary;
+}
+
 async function loadSettings() {
   currentSettings = await api("/admin/settings");
   document.getElementById("profile-name").value = currentSettings.profile_name || "";
   document.getElementById("profile-role").value = currentSettings.profile_role || "";
   document.getElementById("profile-context").value = currentSettings.profile_context || "";
+  updateProfileSummary();
 
   const provider = currentSettings.ai_provider || "ollama";
   document.getElementById(provider === "claude" ? "provider-claude" : "provider-ollama").checked = true;
@@ -52,11 +117,13 @@ function renderBackupScheduleNote() {
   if (!currentSettings.backup_last_run_at) {
     note.textContent = "No automatic backup has run yet.";
     note.style.color = "var(--muted)";
+    updateBackupsSummary();
     return;
   }
   const when = new Date(currentSettings.backup_last_run_at + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   note.textContent = `Last run ${when}: ${currentSettings.backup_last_detail || ""}`;
   note.style.color = currentSettings.backup_last_status === "error" ? "var(--danger)" : "var(--ok)";
+  updateBackupsSummary();
 }
 
 function renderB2Status() {
@@ -79,6 +146,7 @@ function renderB2Status() {
     note.textContent = "Not configured.";
     note.style.color = "var(--muted)";
   }
+  updateBackupsSummary();
 }
 
 async function saveBackupSchedule() {
@@ -165,12 +233,14 @@ function renderClaudeStatus() {
     note.textContent = "No API key saved yet.";
     note.style.color = "var(--muted)";
   }
+  updateProviderSummary();
 }
 
 async function changeProvider(provider) {
   setProviderUI(provider);
   await api("/admin/settings", { method: "PUT", body: JSON.stringify({ ai_provider: provider }) });
   currentSettings.ai_provider = provider;
+  updateProviderSummary();
 }
 
 async function saveClaudeKey() {
@@ -213,6 +283,8 @@ async function saveProfile() {
   const profile_role = document.getElementById("profile-role").value.trim() || null;
   const profile_context = document.getElementById("profile-context").value.trim() || null;
   await api("/admin/settings", { method: "PUT", body: JSON.stringify({ profile_name, profile_role, profile_context }) });
+  Object.assign(currentSettings, { profile_name, profile_role, profile_context });
+  updateProfileSummary();
   flash("model-status", "", false);
   const btn = document.getElementById("save-profile-btn");
   const original = btn.textContent;
@@ -251,6 +323,7 @@ async function saveModel() {
   if (!ollama_model) return;
   await api("/admin/settings", { method: "PUT", body: JSON.stringify({ ollama_model }) });
   currentSettings.ollama_model = ollama_model;
+  updateProviderSummary();
   flash("model-status", "Saved!", false);
 }
 
@@ -351,12 +424,15 @@ function renderSecurityReport(report) {
   } else {
     regressedEl.innerHTML = "";
   }
+
+  updateSecuritySummary(report);
 }
 
 async function loadLatestSecurityCheck() {
   const report = await api("/admin/security-check/latest");
   if (report.results.length === 0) {
     document.getElementById("check-results").innerHTML = '<div class="empty">No checks run yet. Click "Run Security Check" or wait for the automatic background check.</div>';
+    updateSecuritySummary(null);
     return;
   }
   renderSecurityReport(report);
@@ -491,6 +567,8 @@ document.getElementById("security-help-backdrop").addEventListener("click", (ev)
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape") document.getElementById("security-help-backdrop").classList.remove("open");
 });
+
+initCollapsibleGroups();
 
 (async function init() {
   await loadSettings();

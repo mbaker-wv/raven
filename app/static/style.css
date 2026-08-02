@@ -1075,6 +1075,98 @@ button.ghost-icon:hover {
   border-bottom: none;
 }
 
+/* ---- Admin: collapsible group panels ---- */
+
+.admin-group {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.admin-group > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  user-select: none;
+}
+
+.admin-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-group > summary:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-group-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-group-heading h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.admin-group-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.admin-group-chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.admin-group[open] > summary .admin-group-chevron {
+  transform: rotate(90deg);
+}
+
+.admin-group[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-group-body {
+  padding: 18px;
+}
+
+.admin-subsection + .admin-subsection {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--border);
+}
+
+.admin-subsection-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.admin-group.danger-zone > summary .admin-group-heading h2 {
+  color: var(--danger);
+}
+
 /* ---- Notes editor ---- */
 
 .note-editor {
