@@ -36,12 +36,22 @@ def encrypt(value: str) -> str:
     return _fernet.encrypt(value.encode()).decode()
 
 
-def decrypt(token: str) -> str:
+def decrypt(token: str) -> str | None:
     try:
         return _fernet.decrypt(token.encode()).decode()
     except InvalidToken:
-        # Value predates encryption support (or the key changed) — treat as plaintext
-        # rather than breaking the app. It gets re-encrypted the next time it's saved.
+        if token.startswith("gAAAAA"):
+            # It's a Fernet token, just not one this machine's key can open — most likely a
+            # database restored from another machine without also copying .raven.key over.
+            # Return None (unset) rather than the raw ciphertext, which would otherwise get
+            # used as if it were a real API key and fail in a much more confusing way.
+            logger.warning(
+                "Stored secret is encrypted but not with this machine's key (restored without "
+                "matching .raven.key?) — treating as unset. Re-enter it in Admin."
+            )
+            return None
+        # Doesn't look like a Fernet token at all — predates encryption support, treat as
+        # plaintext. It gets re-encrypted the next time it's saved.
         logger.warning("Stored secret was not encrypted with the current key; treating as legacy plaintext.")
         return token
 

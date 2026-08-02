@@ -1,12 +1,12 @@
 RAVEN - SETUP INSTRUCTIONS
 ===========================
-Last updated: 2026-07-30
+Last updated: 2026-08-02
 
 This guide covers four things:
   1. Installing Ollama (runs AI models locally on your machine)
   2. Installing the Llama 3.2 3B model
   3. Installing and running the Raven app
-  4. Creating a desktop shortcut to launch it
+  4. Creating a launcher to start it (Windows and macOS)
 
 -----------------------------------------
 1. INSTALL OLLAMA
@@ -76,11 +76,18 @@ extra configuration is needed once this model is pulled.
 Prerequisites:
     - Python 3.11 or later
         Download: https://www.python.org/downloads/
-        (On the first install screen, check "Add python.exe to PATH"
-        before clicking Install)
+        Windows: on the first install screen, check "Add python.exe to
+          PATH" before clicking Install.
+        macOS: the installer sets up PATH on its own - no checkbox to
+          look for. Afterward, "python3" is the command to use (plain
+          "python" usually isn't on PATH on macOS). If you have Homebrew,
+          "brew install python" also works.
     - git
-        Download: https://git-scm.com/downloads
-        (Windows installer defaults are fine - just click through)
+        Windows: https://git-scm.com/downloads (installer defaults are
+          fine - just click through)
+        macOS: run "git --version" in Terminal - if it's not already
+          installed, macOS prompts you to install the Xcode Command Line
+          Tools, which is all you need.
     - Ollama installed and running (see steps 1-2 above), OR a Claude API
       key if you plan to use Claude instead of local Ollama
 
@@ -98,11 +105,17 @@ Steps:
          .venv\Scripts\pip install -r requirements.txt
 
        macOS/Linux:
-         python -m venv .venv
+         python3 -m venv .venv
          .venv/bin/pip install -r requirements.txt
 
-  3. (Optional) If restoring an existing database from backup instead of
-     starting fresh, see RESTORE.md in this folder for the B2 restore steps.
+  3. (Optional) If you're restoring an existing database from backup
+     instead of starting fresh - e.g. setting Raven up on a second
+     machine - see RESTORE.md in this folder for the B2 restore steps.
+     Importantly, that also covers copying over ".raven.key", a small
+     file that isn't included in the backup itself but is needed to read
+     your saved Claude/B2 credentials - skipping it doesn't lose any of
+     your projects/tasks/notes, it just means re-entering those two keys
+     in Admin afterward.
 
   4. Run the app:
 
@@ -112,7 +125,8 @@ Steps:
        macOS/Linux:
          .venv/bin/python -m uvicorn app.main:app --port 8000
 
-  5. Open your browser to:
+  5. Raven opens your browser automatically a moment after startup. If it
+     doesn't, go to:
        http://localhost:8000
 
 Once running, go to Admin in the app to:
@@ -121,11 +135,13 @@ Once running, go to Admin in the app to:
     - Set up Backblaze B2 backup credentials if desired
 
 -----------------------------------------
-4. CREATE A DESKTOP SHORTCUT
+4. CREATE A LAUNCHER
 -----------------------------------------
 
+Windows:
+
 A launcher file named "start_raven.bat" is included in this folder. It
-starts the server and opens the app in your browser automatically.
+starts the server, which opens the app in your browser automatically.
 
 To pin it to your desktop:
 
@@ -150,6 +166,33 @@ To launch Raven going forward:
   3. A console window opens and your browser loads http://localhost:8000
   4. To stop the app, close the console window (or press Ctrl+C in it)
 
+macOS:
+
+A launcher file named "start_raven.command" is included in this folder
+(already marked executable, so cloning the repo is all you need - no
+extra chmod step). Double-clicking it opens a Terminal window, starts
+the server, and Raven opens your browser automatically a moment later.
+
+First double-click only: macOS may show "cannot be opened because it is
+from an unidentified developer." If so, right-click (or Control-click)
+"start_raven.command" > Open, then click Open again to confirm. After
+that one-time approval, double-clicking works normally.
+
+To keep it handy, either:
+  - Drag "start_raven.command" onto the Dock, or
+  - Right-click it in Finder > "Make Alias", then drag the alias to your
+    Desktop and rename it "Raven"
+(macOS doesn't support custom icons on .command files without extra
+tooling, so it'll show the generic Terminal-script icon - that's normal
+and doesn't affect anything.)
+
+To launch Raven going forward:
+  1. Make sure Ollama is running (it usually starts automatically after
+     install; if not, run "ollama serve")
+  2. Double-click the launcher (or its Dock/Desktop shortcut)
+  3. A Terminal window opens and your browser loads http://localhost:8000
+  4. To stop the app, close the Terminal window (or press Ctrl+C in it)
+
 -----------------------------------------
 SHARING WITH SOMEONE ELSE
 -----------------------------------------
@@ -169,7 +212,9 @@ grant access.
 If you'd rather not give them GitHub access, you can instead zip up the
 project folder (skip the .venv and data folders - those are
 machine-specific / contain your database) and send that directly, along
-with this guide.
+with this guide. If you also want your existing data to carry over
+rather than them starting fresh, include ".raven.key" in that zip too
+(it's a small hidden file in the project root) - see RESTORE.md.
 
 -----------------------------------------
 TROUBLESHOOTING
@@ -183,5 +228,12 @@ Port 8000 already in use:
     - Run uvicorn with a different port, e.g. --port 8001
 
 Python version issues:
-    - Check your version with: python --version
+    - Check your version with: python --version    (Windows)
+                                python3 --version   (macOS/Linux)
     - Raven requires Python 3.11+
+
+macOS: "start_raven.command cannot be opened" or opens in a text editor
+instead of Terminal:
+    - Right-click (or Control-click) the file > Open, then confirm Open
+      in the warning dialog. This is macOS blocking an unrecognized
+      script the first time, not a problem with the file itself.
