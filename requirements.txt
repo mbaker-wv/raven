@@ -3,3 +3,4 @@ uvicorn[standard]==0.49.0
 sqlalchemy==2.0.51
 pip-audit==2.10.1
 b2sdk==2.12.0
+cryptography==50.0.0

@@ -115,3 +115,52 @@ def run_migrations():
         if agent_run_columns and "tool_calls" not in agent_run_columns:
             conn.execute(text("ALTER TABLE agent_runs ADD COLUMN tool_calls TEXT"))
             conn.commit()
+
+        _encrypt_legacy_secrets(conn)
+        _create_missing_indexes(conn)
+
+
+# Mirrors the index=True columns declared in models.py. create_all() only creates indexes
+# for brand-new tables, so pre-existing databases need these added explicitly.
+INDEXES = [
+    ("ix_entries_entry_type", "entries", "entry_type"),
+    ("ix_entries_project_id", "entries", "project_id"),
+    ("ix_entries_task_id", "entries", "task_id"),
+    ("ix_entries_reminder_date", "entries", "reminder_date"),
+    ("ix_entries_created_at", "entries", "created_at"),
+    ("ix_tasks_status", "tasks", "status"),
+    ("ix_tasks_due_date", "tasks", "due_date"),
+    ("ix_tasks_project_id", "tasks", "project_id"),
+    ("ix_tasks_created_at", "tasks", "created_at"),
+    ("ix_tasks_completed_at", "tasks", "completed_at"),
+    ("ix_tasks_archived", "tasks", "archived"),
+    ("ix_file_links_project_id", "file_links", "project_id"),
+    ("ix_agent_runs_agent_id", "agent_runs", "agent_id"),
+]
+
+
+def _create_missing_indexes(conn) -> None:
+    for index_name, table, column in INDEXES:
+        conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({column})"))
+    conn.commit()
+
+
+def _encrypt_legacy_secrets(conn) -> None:
+    """One-time upgrade path: encrypt any claude_api_key/b2_application_key saved before
+    at-rest encryption was added, so they don't sit in plaintext waiting for a re-save."""
+    from .crypto import encrypt, is_encrypted
+
+    row = conn.execute(text("SELECT id, claude_api_key, b2_application_key FROM settings")).first()
+    if not row:
+        return
+
+    updates = {}
+    if row.claude_api_key and not is_encrypted(row.claude_api_key):
+        updates["claude_api_key"] = encrypt(row.claude_api_key)
+    if row.b2_application_key and not is_encrypted(row.b2_application_key):
+        updates["b2_application_key"] = encrypt(row.b2_application_key)
+
+    if updates:
+        set_clause = ", ".join(f"{col} = :{col}" for col in updates)
+        conn.execute(text(f"UPDATE settings SET {set_clause} WHERE id = :id"), {**updates, "id": row.id})
+        conn.commit()

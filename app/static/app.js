@@ -82,7 +82,7 @@ async function loadEntries() {
         <div class="entry-meta">
           <span>${new Date(e.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           <span class="badge ${e.entry_type}">${e.entry_type}</span>
-          ${projectName(e.project_id) ? `<span class="project-tag">${projectName(e.project_id)}</span>` : ""}
+          ${projectName(e.project_id) ? `<span class="project-tag">${escapeHtml(projectName(e.project_id))}</span>` : ""}
         </div>
         <div>${escapeHtml(e.content)}</div>
       `,
@@ -93,7 +93,7 @@ async function loadEntries() {
         <div class="entry-meta">
           <span>${new Date(t.completed_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           <span class="badge status-closed">completed</span>
-          ${projectName(t.project_id) ? `<span class="project-tag">${projectName(t.project_id)}</span>` : ""}
+          ${projectName(t.project_id) ? `<span class="project-tag">${escapeHtml(projectName(t.project_id))}</span>` : ""}
         </div>
         <div>${escapeHtml(t.title)}</div>
       `,
@@ -132,7 +132,7 @@ async function loadTasks() {
     li.innerHTML = `
       <a class="task-title-link" href="/tasks?task_id=${t.id}">${escapeHtml(t.title)}</a>
       <span class="badge status-${t.status}">${t.status}</span>
-      ${pname ? `<span class="project-tag">${pname}</span>` : ""}
+      ${pname ? `<span class="project-tag">${escapeHtml(pname)}</span>` : ""}
       ${t.recurrence && t.recurrence !== "none" ? `<span class="tag-badge">↻ ${escapeHtml(t.recurrence)}</span>` : ""}
       ${overdue ? `<span class="tag-badge overdue">Overdue</span>` : ""}
       ${t.due_date ? `<span class="due ${overdue ? "overdue" : ""}">${t.due_date}</span>` : ""}

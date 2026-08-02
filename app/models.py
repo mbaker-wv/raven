@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Str
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
+from .crypto import EncryptedString
 from .database import Base
 
 
@@ -23,11 +24,11 @@ class Entry(Base):
 
     id = Column(Integer, primary_key=True)
     content = Column(Text, nullable=False)
-    entry_type = Column(String, nullable=False, default="note")  # update / decision / blocker / note
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
-    reminder_date = Column(Date, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    entry_type = Column(String, nullable=False, default="note", index=True)  # update / decision / blocker / note
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True, index=True)
+    reminder_date = Column(Date, nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     project = relationship("Project", back_populates="entries")
     task = relationship("Task", back_populates="notes")
@@ -48,15 +49,15 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True)
     title = Column(String, nullable=False)
-    status = Column(String, nullable=False, default="new")  # new / inprogress / blocked / closed
-    due_date = Column(Date, nullable=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    status = Column(String, nullable=False, default="new", index=True)  # new / inprogress / blocked / closed
+    due_date = Column(Date, nullable=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
     recurrence = Column(String, nullable=False, default="none")  # none / daily / weekly / monthly
     recurrence_day = Column(String, nullable=True)
     tags = Column(String, nullable=True)  # comma-separated
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    archived = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    archived = Column(Boolean, nullable=False, default=False, index=True)
     archived_at = Column(DateTime(timezone=True), nullable=True)
 
     project = relationship("Project", back_populates="tasks")
@@ -69,7 +70,7 @@ class FileLink(Base):
     id = Column(Integer, primary_key=True)
     path = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
     tags = Column(String, nullable=True)  # comma-separated
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -85,7 +86,7 @@ class Settings(Base):
     profile_role = Column(String, nullable=True)
     profile_context = Column(Text, nullable=True)
     ai_provider = Column(String, nullable=False, default="ollama")  # ollama / claude
-    claude_api_key = Column(String, nullable=True)
+    claude_api_key = Column(EncryptedString, nullable=True)
     claude_status = Column(String, nullable=True)  # ok / error, cached last-known result
     claude_status_detail = Column(Text, nullable=True)
     claude_status_checked_at = Column(DateTime(timezone=True), nullable=True)
@@ -95,7 +96,7 @@ class Settings(Base):
     backup_last_status = Column(String, nullable=True)  # ok / error
     backup_last_detail = Column(Text, nullable=True)
     b2_key_id = Column(String, nullable=True)
-    b2_application_key = Column(String, nullable=True)
+    b2_application_key = Column(EncryptedString, nullable=True)
     b2_bucket_name = Column(String, nullable=True)
     b2_status = Column(String, nullable=True)  # ok / error, cached last-known result
     b2_status_detail = Column(Text, nullable=True)
@@ -139,7 +140,7 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
 
     id = Column(Integer, primary_key=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False, index=True)
     output = Column(Text, nullable=False)
     tool_calls = Column(Text, nullable=True)  # JSON array: [{"tool","args","result","is_error"}, ...]
     context_start = Column(Date, nullable=True)

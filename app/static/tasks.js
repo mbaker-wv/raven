@@ -130,7 +130,7 @@ async function loadTasks() {
       const tags = parseTags(t.tags);
       li.innerHTML = `
         <span class="task-title-link ${t.status === "closed" ? "task-title done" : ""}" data-id="${t.id}">${escapeHtml(t.title)}</span>
-        ${pname ? `<span class="project-tag">${pname}</span>` : ""}
+        ${pname ? `<span class="project-tag">${escapeHtml(pname)}</span>` : ""}
         ${t.recurrence && t.recurrence !== "none" ? `<span class="tag-badge">↻ ${escapeHtml(t.recurrence)}</span>` : ""}
         ${tags.map((tag) => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join("")}
         ${t.due_date ? `<span class="due ${overdue ? "overdue" : ""}">${t.due_date}</span>` : ""}
