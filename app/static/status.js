@@ -8,8 +8,8 @@
     const data = await res.json();
     dot.className = `status-dot ${data.status === "ok" ? "ok" : "error"}`;
     const providerLabel = data.provider === "claude" ? "Claude" : "Ollama";
-    label.textContent = `${providerLabel} · ${data.model}`;
-    if (link) link.title = data.detail || "";
+    label.textContent = providerLabel;
+    if (link) link.title = data.detail || `${providerLabel} · ${data.model}`;
   } catch (err) {
     dot.className = "status-dot error";
     label.textContent = "Status unavailable";

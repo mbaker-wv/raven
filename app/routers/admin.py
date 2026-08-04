@@ -1,7 +1,9 @@
 import importlib.metadata
 import json
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import urllib.error
@@ -15,7 +17,9 @@ from sqlalchemy.orm import Session
 
 from .. import b2_client, models, schemas
 from ..claude_client import CLAUDE_MODEL, test_connection as test_claude_connection
+from ..crypto import KEY_PATH
 from ..database import BASE_DIR, DATA_DIR, DATABASE_PATH, get_db
+from ..net import SSL_CONTEXT
 from ..ollama_client import OLLAMA_HOST, get_active_model, list_models
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -250,16 +254,65 @@ def delete_all_backups():
     return {"deleted": deleted}
 
 
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _check_server_bind_address() -> dict:
+    """Uvicorn defaults to 127.0.0.1 when --host isn't passed, so a missing flag is safe.
+    Reads the actual launch args instead of assuming, so this can't silently go stale if
+    someone changes how Raven is started."""
+    host = None
+    for i, arg in enumerate(sys.argv):
+        if arg == "--host" and i + 1 < len(sys.argv):
+            host = sys.argv[i + 1]
+            break
+        if arg.startswith("--host="):
+            host = arg.split("=", 1)[1]
+            break
+
+    if host is None:
+        return {
+            "check": "Server bind address",
+            "status": "pass",
+            "detail": "No --host flag passed — uvicorn defaults to 127.0.0.1, not reachable from the network.",
+        }
+    if host in LOOPBACK_HOSTS:
+        return {"check": "Server bind address", "status": "pass", "detail": f"Bound to {host} — not reachable from the network."}
+    return {
+        "check": "Server bind address",
+        "status": "fail",
+        "detail": (
+            f"Server was started with --host {host}, which is reachable from beyond this machine. "
+            "Remove --host (or set it to 127.0.0.1) unless you specifically intend to expose Raven on your network."
+        ),
+    }
+
+
+def _check_key_file_permissions() -> dict:
+    """.raven.key encrypts the Claude/B2 secrets at rest — if it's readable by other
+    accounts on this machine, that encryption doesn't buy you anything."""
+    check_name = "Secret key file permissions"
+    if not KEY_PATH.exists():
+        return {"check": check_name, "status": "info", "detail": f"{KEY_PATH} doesn't exist yet — created on first save of a Claude or B2 secret."}
+
+    mode = stat.S_IMODE(KEY_PATH.stat().st_mode)
+    if os.name == "nt":
+        return {"check": check_name, "status": "info", "detail": "Windows doesn't use POSIX file permissions, so this check doesn't apply here."}
+    if mode & (stat.S_IRWXG | stat.S_IRWXO):
+        return {
+            "check": check_name,
+            "status": "fail",
+            "detail": f"{KEY_PATH} is readable by other users on this machine (mode {oct(mode)}). Run: chmod 600 {KEY_PATH}",
+        }
+    return {"check": check_name, "status": "pass", "detail": f"{KEY_PATH} is only readable by you (mode {oct(mode)})."}
+
+
 def _run_builtin_checks() -> list[dict]:
     results = []
 
-    results.append(
-        {
-            "check": "Server bind address",
-            "status": "pass",
-            "detail": "Documented run commands bind to 127.0.0.1 only — not reachable from the network.",
-        }
-    )
+    results.append(_check_server_bind_address())
+    results.append(_check_key_file_permissions())
+
     reload_enabled = "--reload" in sys.argv
     if reload_enabled:
         results.append(
@@ -369,7 +422,7 @@ def _check_outdated_packages() -> list[dict]:
 
         try:
             req = urllib.request.Request(f"https://pypi.org/pypi/{name}/json", headers={"User-Agent": "Raven-SecurityCheck"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as resp:
                 data = json.loads(resp.read())
             latest = data.get("info", {}).get("version")
         except Exception as exc:
@@ -412,7 +465,7 @@ def _check_ollama_version() -> list[dict]:
             "https://api.github.com/repos/ollama/ollama/releases/latest",
             headers={"User-Agent": "Raven-SecurityCheck"},
         )
-        with urllib.request.urlopen(gh_req, timeout=10) as resp:
+        with urllib.request.urlopen(gh_req, timeout=10, context=SSL_CONTEXT) as resp:
             latest_tag = json.loads(resp.read()).get("tag_name", "").lstrip("v")
     except Exception as exc:
         return [{"check": "Ollama version", "status": "error", "detail": f"Running {local_version}, but couldn't reach GitHub to check the latest release: {exc}"}]

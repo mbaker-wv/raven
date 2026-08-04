@@ -4,3 +4,4 @@ __pycache__/
 data/
 .raven.key
 .claude/settings.local.json
+.DS_Store

@@ -5,6 +5,8 @@ from typing import Callable
 
 from fastapi import HTTPException
 
+from .net import SSL_CONTEXT
+
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 CLAUDE_MODEL = "claude-sonnet-5"
@@ -22,7 +24,7 @@ def _post(api_key: str, payload: dict, timeout: int) -> dict:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=SSL_CONTEXT) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         body = exc.read().decode(errors="replace")
