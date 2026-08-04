@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
@@ -116,6 +117,12 @@ def run_migrations():
             conn.execute(text("ALTER TABLE agent_runs ADD COLUMN tool_calls TEXT"))
             conn.commit()
 
+        board_columns = [row[1] for row in conn.execute(text("PRAGMA table_info(boards)"))]
+        if board_columns and "groups" not in board_columns:
+            conn.execute(text("ALTER TABLE boards ADD COLUMN groups TEXT DEFAULT '[]'"))
+            conn.commit()
+
+        _seed_example_board(conn)
         _encrypt_legacy_secrets(conn)
         _create_missing_indexes(conn)
 
@@ -135,8 +142,34 @@ INDEXES = [
     ("ix_tasks_completed_at", "tasks", "completed_at"),
     ("ix_tasks_archived", "tasks", "archived"),
     ("ix_file_links_project_id", "file_links", "project_id"),
+    ("ix_boards_project_id", "boards", "project_id"),
     ("ix_agent_runs_agent_id", "agent_runs", "agent_id"),
 ]
+
+
+def _seed_example_board(conn) -> None:
+    board_count = conn.execute(text("SELECT COUNT(*) FROM boards")).scalar()
+    if board_count:
+        return
+    nodes = [
+        {"id": "n1", "label": "Task created", "shape": "stadium"},
+        {"id": "n2", "label": "In progress", "shape": "rect"},
+        {"id": "n3", "label": "Blocked?", "shape": "diamond"},
+        {"id": "n4", "label": "Blocked", "shape": "rect"},
+        {"id": "n5", "label": "Closed", "shape": "stadium"},
+    ]
+    edges = [
+        {"from": "n1", "to": "n2", "label": ""},
+        {"from": "n2", "to": "n3", "label": ""},
+        {"from": "n3", "to": "n4", "label": "yes"},
+        {"from": "n4", "to": "n2", "label": "unblocked"},
+        {"from": "n3", "to": "n5", "label": "no"},
+    ]
+    conn.execute(
+        text("INSERT INTO boards (name, direction, nodes, edges) VALUES (:name, 'TD', :nodes, :edges)"),
+        {"name": "Example: Task lifecycle", "nodes": json.dumps(nodes), "edges": json.dumps(edges)},
+    )
+    conn.commit()
 
 
 def _create_missing_indexes(conn) -> None:

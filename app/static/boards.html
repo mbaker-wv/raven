@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Boards</title>
+<link rel="stylesheet" href="/static/style.css?v=25">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Raven</div>
+    <nav>
+      <a href="/">Today</a>
+      <a href="/tasks">Tasks</a>
+      <a href="/notes">Notes</a>
+      <a href="/activity-log">Activity Log</a>
+      <a href="/agents">Agents</a>
+      <a href="/boards" class="active">Boards</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+
+  <main class="boards-main">
+    <div id="board-empty-state" class="boards-empty-state" style="display: none;">
+      <strong>No boards yet</strong>
+      <p>Create your first board to start mapping a flow.</p>
+      <button class="btn-primary" id="empty-new-board-btn" type="button">+ Create your first board</button>
+    </div>
+
+    <div class="boards-workspace" id="boards-workspace" style="display: none;">
+      <div class="boards-stage">
+        <div class="boards-toolbar">
+          <div class="boards-toolbar-left">
+            <div class="board-switch-wrap">
+              <button class="icon-btn" id="board-switch-btn" type="button" title="Switch board" aria-haspopup="true">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+              </button>
+              <div class="board-popover" id="board-popover">
+                <ul class="board-popover-list" id="board-popover-list"></ul>
+                <button class="board-popover-new" id="new-board-btn" type="button">+ New board</button>
+              </div>
+            </div>
+            <input class="board-title-input" id="board-title-input" maxlength="60" placeholder="Untitled board">
+          </div>
+          <div class="boards-toolbar-actions">
+            <span class="save-chip" id="board-save-status"></span>
+            <button class="icon-btn" id="undo-btn" type="button" title="Undo (Ctrl/Cmd+Z)" disabled>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8H12.5A2.5 2.5 0 0 1 15 10.5V10.5A2.5 2.5 0 0 1 12.5 13H7"/><path d="M6.5 5L4 8L6.5 11"/></svg>
+            </button>
+            <div class="dir-toggle" id="dir-seg">
+              <button data-dir="TD" class="active" type="button" title="Top to bottom"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v11M4 9l4 4 4-4"/></svg></button>
+              <button data-dir="LR" type="button" title="Left to right"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h11M9 4l4 4-4 4"/></svg></button>
+            </div>
+            <button class="btn-ghost-danger" id="delete-board-btn" type="button">Delete</button>
+          </div>
+        </div>
+
+        <div class="boards-canvas" id="canvas-frame">
+          <div class="board-canvas-empty"><strong>Nothing here yet</strong>Add a step from the panel on the right.</div>
+        </div>
+
+        <details class="boards-footer">
+          <summary>View generated Mermaid syntax</summary>
+          <pre id="code-output"></pre>
+        </details>
+      </div>
+
+      <aside class="inspector">
+        <div class="inspector-tabs">
+          <button class="tab active" data-tab="steps" type="button">Steps</button>
+          <button class="tab" data-tab="connections" type="button">Connections</button>
+          <button class="tab" data-tab="groups" type="button">Groups</button>
+        </div>
+        <div class="inspector-body" id="inspector-body"></div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<script src="/static/vendor/mermaid.min.js?v=1"></script>
+<script src="/static/status.js?v=1"></script>
+<script src="/static/boards.js?v=6"></script>
+</body>
+</html>

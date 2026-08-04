@@ -21,7 +21,7 @@ UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 from . import models
 from .database import SessionLocal, engine, run_migrations
 from .logging_config import configure_logging
-from .routers import admin, agents, entries, filelinks, note_tabs, projects, reports, tasks
+from .routers import admin, agents, boards, entries, filelinks, note_tabs, projects, reports, tasks
 
 configure_logging()
 logger = logging.getLogger("raven.main")
@@ -117,6 +117,7 @@ app.include_router(reports.router)
 app.include_router(agents.router)
 app.include_router(admin.router)
 app.include_router(note_tabs.router)
+app.include_router(boards.router)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -145,6 +146,11 @@ def activity_log_page():
 @app.get("/agents")
 def agents_page():
     return FileResponse(STATIC_DIR / "agents.html", headers=NO_CACHE_HEADERS)
+
+
+@app.get("/boards")
+def boards_page():
+    return FileResponse(STATIC_DIR / "boards.html", headers=NO_CACHE_HEADERS)
 
 
 @app.get("/admin")

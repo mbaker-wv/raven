@@ -126,6 +126,44 @@ class FileLinkOut(FileLinkBase):
     created_at: datetime
 
 
+class BoardBase(BaseModel):
+    name: str
+    project_id: Optional[int] = None
+    direction: Literal["TD", "LR"] = "TD"
+
+
+class BoardCreate(BoardBase):
+    nodes: list[dict] = []
+    edges: list[dict] = []
+    groups: list[dict] = []
+
+
+class BoardUpdate(BaseModel):
+    name: Optional[str] = None
+    project_id: Optional[int] = None
+    direction: Optional[Literal["TD", "LR"]] = None
+    nodes: Optional[list[dict]] = None
+    edges: Optional[list[dict]] = None
+    groups: Optional[list[dict]] = None
+
+
+class BoardOut(BoardBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nodes: list[dict] = []
+    edges: list[dict] = []
+    groups: list[dict] = []
+    updated_at: datetime
+
+    @field_validator("nodes", "edges", "groups", mode="before")
+    @classmethod
+    def _parse_json(cls, v):
+        if not v:
+            return []
+        return json.loads(v) if isinstance(v, str) else v
+
+
 class SettingsOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

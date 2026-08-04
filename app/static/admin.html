@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Raven — Admin</title>
-<link rel="stylesheet" href="/static/style.css?v=13">
+<link rel="stylesheet" href="/static/style.css?v=17">
 </head>
 <body>
 <div class="app-shell">
@@ -15,6 +15,7 @@
       <a href="/notes">Notes</a>
       <a href="/activity-log">Activity Log</a>
       <a href="/agents">Agents</a>
+      <a href="/boards">Boards</a>
       <a href="/admin" class="active">Admin</a>
     </nav>
     <a href="/admin" class="sidebar-status" id="sidebar-status">
@@ -256,7 +257,11 @@
     <span class="help-provider-tag" style="color: var(--muted);">Basic checks</span>
     <div class="help-step">
       <span class="num">→</span>
-      <p><strong>Server bind address</strong> — confirms Raven only listens on 127.0.0.1 (this machine), not reachable from your network.</p>
+      <p><strong>Server bind address</strong> — reads the actual launch args to confirm Raven only listens on 127.0.0.1 (this machine), not reachable from your network.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Secret key file permissions</strong> — your Claude/B2 secrets are encrypted at rest using <code>.raven.key</code>; this confirms that file isn't readable by other accounts on this machine, which would defeat the point of encrypting it.</p>
     </div>
     <div class="help-step">
       <span class="num">→</span>

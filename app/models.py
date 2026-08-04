@@ -17,6 +17,7 @@ class Project(Base):
     entries = relationship("Entry", back_populates="project")
     tasks = relationship("Task", back_populates="project")
     file_links = relationship("FileLink", back_populates="project")
+    boards = relationship("Board", back_populates="project")
 
 
 class Entry(Base):
@@ -75,6 +76,22 @@ class FileLink(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     project = relationship("Project", back_populates="file_links")
+
+
+class Board(Base):
+    __tablename__ = "boards"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    direction = Column(String, nullable=False, default="TD")  # TD / LR
+    nodes = Column(Text, nullable=False, default="[]")  # JSON: [{id, label, shape, groupId}]
+    edges = Column(Text, nullable=False, default="[]")  # JSON: [{from, to, label}]
+    groups = Column(Text, nullable=False, default="[]")  # JSON: [{id, label}]
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    project = relationship("Project", back_populates="boards")
 
 
 class Settings(Base):
