@@ -78,6 +78,22 @@ function updateBackupsSummary() {
   sub.textContent = `${scheduleBit} · ${b2Bit}`;
 }
 
+function updateUpdatesSummary(data) {
+  const sub = document.getElementById("updates-group-sub");
+  if (!data || data.error) {
+    sub.textContent = "Not checked yet";
+    return;
+  }
+  const versionBit = data.current_version ? `v${data.current_version}` : "";
+  if (data.dirty_files && data.dirty_files.length > 0) {
+    sub.textContent = `${versionBit} · local changes present`;
+  } else if (data.available) {
+    sub.textContent = `${versionBit} · ${data.commits_behind} commit${data.commits_behind === 1 ? "" : "s"} behind`;
+  } else {
+    sub.textContent = `${versionBit} · up to date`;
+  }
+}
+
 function updateSecuritySummary(report) {
   const sub = document.getElementById("security-group-sub");
   if (!report || !report.results || report.results.length === 0) {
@@ -473,6 +489,74 @@ async function loadSecurityCheckHistory() {
   }
 }
 
+function renderUpdateInfo(data) {
+  const info = document.getElementById("update-info");
+  const applyBtn = document.getElementById("apply-update-btn");
+
+  if (data.error) {
+    info.innerHTML = `<div class="error-text">${escapeHtml(data.error)}</div>`;
+    applyBtn.disabled = true;
+    return;
+  }
+
+  if (data.dirty_files && data.dirty_files.length > 0) {
+    info.innerHTML = `<div class="error-text">Local changes present in: ${data.dirty_files.map(escapeHtml).join(", ")}. Resolve these before updating.</div>`;
+    applyBtn.disabled = true;
+    return;
+  }
+
+  if (!data.available) {
+    info.innerHTML = `<div class="empty">Up to date — v${escapeHtml(data.current_version || "?")} (${escapeHtml(data.current_commit || "")}) on <strong>${escapeHtml(data.branch || "")}</strong>.</div>`;
+    applyBtn.disabled = true;
+    return;
+  }
+
+  const commitList = data.commits.map((c) => `<div style="font-size: 13px; color: var(--muted);">${escapeHtml(c)}</div>`).join("");
+  info.innerHTML = `
+    <div style="margin-bottom: 6px;">v${escapeHtml(data.current_version)} → v${escapeHtml(data.latest_version)} available — ${data.commits_behind} commit${data.commits_behind === 1 ? "" : "s"} behind on <strong>${escapeHtml(data.branch)}</strong> (${escapeHtml(data.current_commit)} → ${escapeHtml(data.latest_commit)}):</div>
+    ${commitList}
+  `;
+  applyBtn.disabled = false;
+}
+
+async function checkForUpdate() {
+  const btn = document.getElementById("check-update-btn");
+  const info = document.getElementById("update-info");
+  btn.disabled = true;
+  document.getElementById("apply-update-btn").disabled = true;
+  info.innerHTML = '<div class="empty">Checking GitHub...</div>';
+  try {
+    const data = await api("/admin/update/check");
+    renderUpdateInfo(data);
+    updateUpdatesSummary(data);
+  } catch (err) {
+    info.innerHTML = `<div class="error-text">${escapeHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function applyUpdate() {
+  if (!confirm("Pull the latest app code from GitHub? You'll need to restart Raven afterward to apply it.")) return;
+  const btn = document.getElementById("apply-update-btn");
+  btn.disabled = true;
+  try {
+    const result = await api("/admin/update/apply", { method: "POST" });
+    let msg = `Updated to v${result.new_version} (${result.new_commit}). Restart Raven to apply the changes.`;
+    if (result.deps_updated) msg += " New Python dependencies were installed.";
+    if (result.pip_error) {
+      msg = `Code updated to v${result.new_version} (${result.new_commit}), but installing new dependencies failed: ${result.pip_error}. Restart Raven, then run: .venv/bin/pip install -r requirements.txt`;
+    }
+    document.getElementById("update-info").innerHTML = `<div class="empty">${escapeHtml(msg)}</div>`;
+    document.getElementById("updates-group-sub").textContent = "Restart required";
+    flash("update-status", "Done", false);
+  } catch (err) {
+    flash("update-status", err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function deleteAllTasks() {
   if (!confirm("Delete all tasks? A backup will be made first, but this can't be undone from the app.")) return;
   const btn = document.getElementById("delete-tasks-btn");
@@ -539,6 +623,8 @@ document.getElementById("delete-all-backups-btn").addEventListener("click", dele
 document.getElementById("save-backup-schedule-btn").addEventListener("click", saveBackupSchedule);
 document.getElementById("save-b2-btn").addEventListener("click", saveB2);
 document.getElementById("test-b2-btn").addEventListener("click", testB2Connection);
+document.getElementById("check-update-btn").addEventListener("click", checkForUpdate);
+document.getElementById("apply-update-btn").addEventListener("click", applyUpdate);
 document.getElementById("run-check-btn").addEventListener("click", runSecurityCheck);
 document.getElementById("check-history-details").addEventListener(
   "toggle",

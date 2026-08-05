@@ -3,20 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <title>Raven — Boards</title>
-<link rel="stylesheet" href="/static/style.css?v=25">
+<link rel="stylesheet" href="/static/style.css?v=34">
 </head>
 <body>
 <div class="app-shell">
-  <aside class="sidebar">
-    <div class="brand">Raven</div>
+  <aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-header">
+      <div class="brand"><span class="brand-label">Raven</span></div>
+      <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Collapse sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      </button>
+    </div>
     <nav>
-      <a href="/">Today</a>
-      <a href="/tasks">Tasks</a>
-      <a href="/notes">Notes</a>
-      <a href="/activity-log">Activity Log</a>
-      <a href="/agents">Agents</a>
-      <a href="/boards" class="active">Boards</a>
-      <a href="/admin">Admin</a>
+      <a href="/" title="Today"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.6"/><path d="M8 1.6v1.6M8 12.8v1.6M2.6 8h1.6M11.8 8h1.6M4.3 4.3l1.1 1.1M10.6 10.6l1.1 1.1M11.7 4.3l-1.1 1.1M5.4 10.6l-1.1 1.1"/></svg><span>Today</span></a>
+      <a href="/tasks" title="Tasks"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg><span>Tasks</span></a>
+      <a href="/notes" title="Notes"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5h5l3 3v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/><path d="M9 2.5v3h3"/><path d="M5.3 8.5h5.4M5.3 11h5.4"/></svg><span>Notes</span></a>
+      <a href="/activity-log" title="Activity Log"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5h2.3l1.3-4 2 7 1.3-4.5 1 1.5H14"/></svg><span>Activity Log</span></a>
+      <a href="/agents" title="Agents"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="10" height="7.5" rx="2"/><path d="M8 2.5v2.5"/><circle cx="8" cy="2" r="0.9" fill="currentColor" stroke="none"/><path d="M6 8.5v1M10 8.5v1"/><path d="M1.5 7.5v3M14.5 7.5v3"/></svg><span>Agents</span></a>
+      <a href="/boards" class="active" title="Boards"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="6" height="4" rx="1"/><rect x="8.5" y="9.5" width="6" height="4" rx="1"/><path d="M4.5 6.5v2a1 1 0 0 0 1 1H8m3 0V9.5"/></svg><span>Boards</span></a>
+      <a href="/admin" title="Admin"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 2.2v1.8M8 12v1.8M13.8 8h-1.8M4 8H2.2M12.1 3.9l-1.3 1.3M5.2 10.8L3.9 12.1M12.1 12.1l-1.3-1.3M5.2 5.2L3.9 3.9"/></svg><span>Admin</span></a>
     </nav>
     <a href="/admin" class="sidebar-status" id="sidebar-status">
       <span class="status-dot" id="status-dot"></span>
@@ -52,24 +57,50 @@
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8H12.5A2.5 2.5 0 0 1 15 10.5V10.5A2.5 2.5 0 0 1 12.5 13H7"/><path d="M6.5 5L4 8L6.5 11"/></svg>
             </button>
             <div class="dir-toggle" id="dir-seg">
-              <button data-dir="TD" class="active" type="button" title="Top to bottom"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v11M4 9l4 4 4-4"/></svg></button>
-              <button data-dir="LR" type="button" title="Left to right"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h11M9 4l4 4-4 4"/></svg></button>
+              <button data-dir="TD" class="active" type="button" title="Top to bottom"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v11M4 9l4 4 4-4"/></svg><span>Top-down</span></button>
+              <button data-dir="LR" type="button" title="Left to right"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h11M9 4l4 4-4 4"/></svg><span>Left-right</span></button>
+            </div>
+            <div class="view-toggle" id="view-seg">
+              <button data-view="flow" class="active" type="button" title="Flow view"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2" width="6" height="4.5" rx="1"/><rect x="8.5" y="9.5" width="6" height="4.5" rx="1"/><path d="M4.5 6.5v2a1 1 0 0 0 1 1H8m3 0V8"/></svg><span>Flow</span></button>
+              <button data-view="split" type="button" title="Split view"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M8 2.5v11"/></svg><span>Split</span></button>
+              <button data-view="code" type="button" title="Code view"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4"/></svg><span>Code</span></button>
             </div>
             <button class="btn-ghost-danger" id="delete-board-btn" type="button">Delete</button>
           </div>
         </div>
 
-        <div class="boards-canvas" id="canvas-frame">
-          <div class="board-canvas-empty"><strong>Nothing here yet</strong>Add a step from the panel on the right.</div>
-        </div>
+        <div class="boards-view-body" id="boards-view-body">
+          <div class="boards-canvas-wrap" id="canvas-wrap">
+            <div class="boards-canvas" id="canvas-frame">
+              <div class="board-canvas-empty"><strong>Nothing here yet</strong>Add a step from the panel on the right.</div>
+            </div>
+            <div class="zoom-controls" id="zoom-controls">
+              <button class="zoom-btn" id="zoom-out-btn" type="button" title="Zoom out">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h8"/></svg>
+              </button>
+              <button class="zoom-reset-btn" id="zoom-reset-btn" type="button" title="Reset to 100%">100%</button>
+              <button class="zoom-btn" id="zoom-in-btn" type="button" title="Zoom in">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v8M4 8h8"/></svg>
+              </button>
+            </div>
+          </div>
 
-        <details class="boards-footer">
-          <summary>View generated Mermaid syntax</summary>
-          <pre id="code-output"></pre>
-        </details>
+          <div class="boards-code-panel" id="boards-code-panel">
+            <div class="mermaid-editor-toolbar">
+              <button class="btn-primary" id="apply-mermaid-btn" type="button">Apply changes</button>
+              <span class="mermaid-editor-error" id="mermaid-editor-error"></span>
+              <a class="mermaid-editor-link" href="https://mermaid.js.org/syntax/flowchart.html" target="_blank" rel="noopener noreferrer">Mermaid syntax reference ↗</a>
+            </div>
+            <textarea id="code-output" class="mermaid-code-editor" spellcheck="false" autocomplete="off"></textarea>
+          </div>
+        </div>
       </div>
 
-      <aside class="inspector">
+      <button class="inspector-toggle" id="inspector-toggle" type="button" title="Collapse panel">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+      </button>
+
+      <aside class="inspector" id="inspector-panel">
         <div class="inspector-tabs">
           <button class="tab active" data-tab="steps" type="button">Steps</button>
           <button class="tab" data-tab="connections" type="button">Connections</button>
@@ -82,7 +113,7 @@
 </div>
 
 <script src="/static/vendor/mermaid.min.js?v=1"></script>
-<script src="/static/status.js?v=1"></script>
-<script src="/static/boards.js?v=6"></script>
+<script src="/static/status.js?v=3"></script>
+<script src="/static/boards.js?v=11"></script>
 </body>
 </html>

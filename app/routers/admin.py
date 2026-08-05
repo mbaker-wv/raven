@@ -21,6 +21,7 @@ from ..crypto import KEY_PATH
 from ..database import BASE_DIR, DATA_DIR, DATABASE_PATH, get_db
 from ..net import SSL_CONTEXT
 from ..ollama_client import OLLAMA_HOST, get_active_model, list_models
+from ..version import get_version
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -252,6 +253,129 @@ def delete_all_backups():
         f.unlink()
         deleted += 1
     return {"deleted": deleted}
+
+
+def _git(args: list[str], timeout: int = 15) -> subprocess.CompletedProcess:
+    try:
+        return subprocess.run(["git", *args], cwd=BASE_DIR, capture_output=True, text=True, timeout=timeout)
+    except FileNotFoundError:
+        raise HTTPException(500, "git is not installed or not on PATH.")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, f"git {' '.join(args)} timed out.")
+
+
+def _dirty_files() -> list[str]:
+    proc = _git(["status", "--porcelain"])
+    if proc.returncode != 0:
+        raise HTTPException(500, f"git status failed: {proc.stderr.strip()[:500]}")
+    return [line[3:].strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def _version_at(ref: str) -> str | None:
+    proc = _git(["show", f"{ref}:VERSION"])
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip()
+
+
+@router.get("/update/check")
+def check_for_update():
+    if not (BASE_DIR / ".git").exists():
+        return {"available": False, "error": "This copy of Raven isn't a git checkout, so it can't self-update."}
+
+    branch_proc = _git(["rev-parse", "--abbrev-ref", "HEAD"])
+    if branch_proc.returncode != 0:
+        return {"available": False, "error": f"Couldn't determine current branch: {branch_proc.stderr.strip()[:500]}"}
+    branch = branch_proc.stdout.strip()
+
+    fetch = _git(["fetch", "origin", branch], timeout=60)
+    if fetch.returncode != 0:
+        return {"available": False, "error": f"Couldn't reach GitHub: {fetch.stderr.strip()[:500]}"}
+
+    local = _git(["rev-parse", "HEAD"]).stdout.strip()
+    remote_proc = _git(["rev-parse", f"origin/{branch}"])
+    if remote_proc.returncode != 0:
+        return {"available": False, "error": f"No origin/{branch} branch found on GitHub."}
+    remote = remote_proc.stdout.strip()
+
+    dirty_files = _dirty_files()
+    current_version = get_version()
+
+    if local == remote:
+        return {
+            "available": False,
+            "branch": branch,
+            "current_commit": local[:7],
+            "current_version": current_version,
+            "dirty_files": dirty_files,
+        }
+
+    log_proc = _git(["log", "--oneline", f"{local}..{remote}"])
+    commits = log_proc.stdout.strip().splitlines() if log_proc.returncode == 0 else []
+
+    return {
+        "available": True,
+        "branch": branch,
+        "current_commit": local[:7],
+        "latest_commit": remote[:7],
+        "current_version": current_version,
+        "latest_version": _version_at(f"origin/{branch}") or current_version,
+        "commits_behind": len(commits),
+        "commits": commits[:20],
+        "dirty_files": dirty_files,
+    }
+
+
+@router.post("/update/apply")
+def apply_update():
+    if not (BASE_DIR / ".git").exists():
+        raise HTTPException(400, "This copy of Raven isn't a git checkout, so it can't self-update.")
+
+    dirty_files = _dirty_files()
+    if dirty_files:
+        raise HTTPException(
+            409,
+            "Local changes would be overwritten by an update, in: " + ", ".join(dirty_files[:10])
+            + ". Commit, stash, or discard them before updating.",
+        )
+
+    branch_proc = _git(["rev-parse", "--abbrev-ref", "HEAD"])
+    if branch_proc.returncode != 0:
+        raise HTTPException(500, f"Couldn't determine current branch: {branch_proc.stderr.strip()[:500]}")
+    branch = branch_proc.stdout.strip()
+
+    before_reqs = REQUIREMENTS_PATH.read_text() if REQUIREMENTS_PATH.exists() else ""
+
+    pull = _git(["pull", "--ff-only", "origin", branch], timeout=60)
+    if pull.returncode != 0:
+        raise HTTPException(500, f"git pull failed: {(pull.stderr or pull.stdout).strip()[:500]}")
+
+    after_reqs = REQUIREMENTS_PATH.read_text() if REQUIREMENTS_PATH.exists() else ""
+    deps_updated = False
+    pip_error = None
+    if after_reqs != before_reqs:
+        try:
+            pip_proc = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", str(REQUIREMENTS_PATH)],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if pip_proc.returncode == 0:
+                deps_updated = True
+            else:
+                pip_error = (pip_proc.stderr or pip_proc.stdout).strip()[:1000]
+        except subprocess.TimeoutExpired:
+            pip_error = "pip install timed out after 5 minutes."
+
+    return {
+        "output": pull.stdout.strip(),
+        "new_commit": _git(["rev-parse", "HEAD"]).stdout.strip()[:7],
+        "new_version": get_version(),
+        "deps_updated": deps_updated,
+        "pip_error": pip_error,
+        "restart_required": True,
+    }
 
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}

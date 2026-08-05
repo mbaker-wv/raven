@@ -60,6 +60,9 @@ const SHAPES = [
 const emptyStateEl = document.getElementById("board-empty-state");
 const workspaceEl = document.getElementById("boards-workspace");
 const canvasFrame = document.getElementById("canvas-frame");
+const zoomOutBtn = document.getElementById("zoom-out-btn");
+const zoomInBtn = document.getElementById("zoom-in-btn");
+const zoomResetBtn = document.getElementById("zoom-reset-btn");
 const codeOutput = document.getElementById("code-output");
 const boardPopover = document.getElementById("board-popover");
 const boardPopoverList = document.getElementById("board-popover-list");
@@ -67,6 +70,38 @@ const boardSwitchBtn = document.getElementById("board-switch-btn");
 const boardTitleInput = document.getElementById("board-title-input");
 const undoBtn = document.getElementById("undo-btn");
 const inspectorBody = document.getElementById("inspector-body");
+const applyMermaidBtn = document.getElementById("apply-mermaid-btn");
+const mermaidEditorError = document.getElementById("mermaid-editor-error");
+const boardsViewBody = document.getElementById("boards-view-body");
+const viewSeg = document.getElementById("view-seg");
+const inspectorPanel = document.getElementById("inspector-panel");
+const inspectorToggle = document.getElementById("inspector-toggle");
+
+/* ---------------- inspector panel collapse ---------------- */
+function setInspectorCollapsed(collapsed) {
+  inspectorPanel.classList.toggle("collapsed", collapsed);
+  inspectorToggle.classList.toggle("collapsed", collapsed);
+  inspectorToggle.title = collapsed ? "Expand panel" : "Collapse panel";
+  localStorage.setItem("boards-inspector-collapsed", collapsed ? "1" : "0");
+}
+inspectorToggle.addEventListener("click", () => {
+  setInspectorCollapsed(!inspectorPanel.classList.contains("collapsed"));
+});
+setInspectorCollapsed(localStorage.getItem("boards-inspector-collapsed") === "1");
+
+/* ---------------- view mode (flow / split / code) ---------------- */
+function setViewMode(mode) {
+  boardsViewBody.classList.remove("mode-flow", "mode-split", "mode-code");
+  boardsViewBody.classList.add("mode-" + mode);
+  viewSeg.querySelectorAll("button[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === mode));
+  localStorage.setItem("boards-view-mode", mode);
+}
+viewSeg.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-view]");
+  if (!btn) return;
+  setViewMode(btn.dataset.view);
+});
+setViewMode(localStorage.getItem("boards-view-mode") || "flow");
 
 function sanitize(text) { return text.replace(/"/g, "'").replace(/\n/g, " ").trim(); }
 function sanitizeEdgeLabel(text) { return sanitize(text).replace(/\|/g, "/"); }
@@ -132,8 +167,170 @@ function buildMermaidText() {
   return lines.join("\n");
 }
 
+/* ---------------- parse hand-edited Mermaid text back into the model ---------------- */
+const SHAPE_LINE_PATTERNS = [
+  { shape: "subroutine", re: /^(\w+)\[\["?(.*?)"?\]\]$/ },
+  { shape: "cylinder", re: /^(\w+)\[\("?(.*?)"?\)\]$/ },
+  { shape: "parallelogram", re: /^(\w+)\[\/"?(.*?)"?\/\]$/ },
+  { shape: "hexagon", re: /^(\w+)\{\{"?(.*?)"?\}\}$/ },
+  { shape: "stadium", re: /^(\w+)\(\["?(.*?)"?\]\)$/ },
+  { shape: "diamond", re: /^(\w+)\{"?(.*?)"?\}$/ },
+  { shape: "rect", re: /^(\w+)\["?(.*?)"?\]$/ },
+];
+const SUBGRAPH_RE = /^subgraph\s+(\w+)(?:\["?(.*?)"?\])?$/;
+const EDGE_RE = /^(\w+)\s+(-->|-\.->)\s*(?:\|(.*?)\|)?\s*(\w+)$/;
+const STYLE_RE = /^style\s+(\w+)\s+(.*)$/;
+const LINKSTYLE_RE = /^linkStyle\s+(\d+)\s+(.*)$/;
+const FLOWCHART_RE = /^flowchart\s+(TD|TB|LR|RL|BT)\s*$/i;
+
+function parseMermaidText(text) {
+  let dir = direction;
+  const newNodes = [], newGroups = [];
+  const nodeIndex = new Map(), groupIndex = new Map();
+  const groupStack = [];
+  const deferredEdges = [];
+  const dashedLinkIdx = new Set();
+  const badLines = [];
+
+  text.split("\n").forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("%%")) return;
+    let m;
+    if (/^flowchart\b/i.test(line)) {
+      m = FLOWCHART_RE.exec(line);
+      if (m) dir = m[1].toUpperCase() === "LR" || m[1].toUpperCase() === "RL" ? "LR" : "TD";
+      return;
+    }
+    if (line === "end") { groupStack.pop(); return; }
+    if ((m = SUBGRAPH_RE.exec(line))) {
+      const id = m[1], label = m[2] || id;
+      let g = groupIndex.get(id);
+      if (!g) { g = { id, label, shape: "square" }; newGroups.push(g); groupIndex.set(id, g); }
+      else g.label = label;
+      groupStack.push(id);
+      return;
+    }
+    if ((m = STYLE_RE.exec(line))) {
+      const g = groupIndex.get(m[1]);
+      if (g) g.shape = /rx\s*:\s*\d/.test(m[2]) ? "rounded" : "square";
+      return;
+    }
+    if ((m = LINKSTYLE_RE.exec(line))) {
+      if (/dasharray/.test(m[2])) dashedLinkIdx.add(+m[1]);
+      return;
+    }
+    if ((m = EDGE_RE.exec(line))) {
+      deferredEdges.push({ from: m[1], to: m[4], label: m[3] ? sanitizeEdgeLabel(m[3]) : "", style: m[2] === "-.->" ? "dotted" : "solid" });
+      return;
+    }
+    let matched = false;
+    for (const { shape, re } of SHAPE_LINE_PATTERNS) {
+      if ((m = re.exec(line))) {
+        const id = m[1], label = sanitize(m[2] || id) || id;
+        const groupId = groupStack.length ? groupStack[groupStack.length - 1] : null;
+        let node = nodeIndex.get(id);
+        if (!node) { node = { id, label, shape }; if (groupId) node.groupId = groupId; newNodes.push(node); nodeIndex.set(id, node); }
+        else { node.label = label; node.shape = shape; if (groupId) node.groupId = groupId; }
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) badLines.push({ lineNo: i + 1, text: raw.trim() });
+  });
+
+  if (badLines.length) {
+    const detail = badLines.slice(0, 3).map((e) => `line ${e.lineNo}: "${e.text}"`).join("; ");
+    throw new Error(`Couldn't understand ${badLines.length} line${badLines.length > 1 ? "s" : ""} — ${detail}${badLines.length > 3 ? ", …" : ""}.`);
+  }
+
+  const newEdges = [];
+  const missing = [];
+  deferredEdges.forEach((e, idx) => {
+    if (!nodeIndex.has(e.from) || !nodeIndex.has(e.to)) { missing.push(`${e.from} → ${e.to}`); return; }
+    if (dashedLinkIdx.has(idx)) e.style = "dashed";
+    newEdges.push(e);
+  });
+  if (missing.length) {
+    throw new Error(`Connection references a step that doesn't exist: ${missing.join(", ")}.`);
+  }
+
+  return { direction: dir, nodes: newNodes, edges: newEdges, groups: newGroups };
+}
+
+function applyMermaidEdits() {
+  mermaidEditorError.textContent = "";
+  let parsed;
+  try {
+    parsed = parseMermaidText(codeOutput.value);
+  } catch (err) {
+    mermaidEditorError.textContent = err.message;
+    return;
+  }
+  pushUndo();
+  nodes = parsed.nodes;
+  edges = parsed.edges;
+  groups = parsed.groups;
+  direction = parsed.direction;
+  nextId = computeNextId(nodes);
+  nextGroupId = computeNextGroupId(groups);
+  selectedNodeId = null; selectedEdge = null; selectedGroupId = null;
+  checkedNodeIds = new Set();
+  syncDirToggle();
+  refreshAndSave();
+}
+applyMermaidBtn.addEventListener("click", applyMermaidEdits);
+codeOutput.addEventListener("input", () => { mermaidEditorError.textContent = ""; });
+codeOutput.addEventListener("keydown", (ev) => {
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") { ev.preventDefault(); applyMermaidEdits(); }
+});
+
+let zoomLevel = 1;
+const ZOOM_MIN = 0.3, ZOOM_MAX = 2, ZOOM_STEP = 0.1;
+
+function applyZoom() {
+  const svgEl = canvasFrame.querySelector("svg");
+  if (svgEl) svgEl.style.transform = `scale(${zoomLevel})`;
+  zoomResetBtn.textContent = Math.round(zoomLevel * 100) + "%";
+  zoomOutBtn.disabled = zoomLevel <= ZOOM_MIN;
+  zoomInBtn.disabled = zoomLevel >= ZOOM_MAX;
+}
+function setZoom(level) {
+  zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +level.toFixed(2)));
+  applyZoom();
+}
+zoomOutBtn.addEventListener("click", () => setZoom(zoomLevel - ZOOM_STEP));
+zoomInBtn.addEventListener("click", () => setZoom(zoomLevel + ZOOM_STEP));
+zoomResetBtn.addEventListener("click", () => setZoom(1));
+
+/* ---------------- middle-mouse-button pan ---------------- */
+let isPanning = false;
+let panStartX = 0, panStartY = 0, panStartScrollLeft = 0, panStartScrollTop = 0;
+canvasFrame.addEventListener("mousedown", (ev) => {
+  if (ev.button !== 1) return;
+  ev.preventDefault();
+  isPanning = true;
+  panStartX = ev.clientX;
+  panStartY = ev.clientY;
+  panStartScrollLeft = canvasFrame.scrollLeft;
+  panStartScrollTop = canvasFrame.scrollTop;
+  canvasFrame.classList.add("panning");
+});
+document.addEventListener("mousemove", (ev) => {
+  if (!isPanning) return;
+  canvasFrame.scrollLeft = panStartScrollLeft - (ev.clientX - panStartX);
+  canvasFrame.scrollTop = panStartScrollTop - (ev.clientY - panStartY);
+});
+document.addEventListener("mouseup", (ev) => {
+  if (ev.button !== 1 || !isPanning) return;
+  isPanning = false;
+  canvasFrame.classList.remove("panning");
+});
+canvasFrame.addEventListener("auxclick", (ev) => { if (ev.button === 1) ev.preventDefault(); });
+
 async function renderDiagram() {
-  codeOutput.textContent = nodes.length ? buildMermaidText() : "flowchart " + direction;
+  if (document.activeElement !== codeOutput) {
+    codeOutput.value = nodes.length ? buildMermaidText() : "flowchart " + direction;
+  }
   if (nodes.length === 0) {
     canvasFrame.innerHTML = '<div class="board-canvas-empty"><strong>Nothing here yet</strong>Add a step from the panel on the right.</div>';
     return;
@@ -144,6 +341,7 @@ async function renderDiagram() {
     canvasFrame.innerHTML = svg;
     attachNodeClickHandlers();
     highlightSvgSelection();
+    applyZoom();
   } catch (err) {
     canvasFrame.innerHTML = '<div class="board-canvas-empty" style="color: var(--danger);"><strong>Could not render</strong>' + (err && err.message ? err.message : "Check labels for unsupported characters.") + "</div>";
   }
@@ -243,7 +441,6 @@ function removeNode(id) {
 function selectNode(id) {
   selectedNodeId = selectedNodeId === id ? null : (nodes.some((n) => n.id === id) ? id : null);
   highlightSvgSelection();
-  activeTab = "steps"; syncTabButtons();
   renderInspector();
 }
 
@@ -262,7 +459,6 @@ function removeEdge(edge) {
 }
 function selectEdge(edge) {
   selectedEdge = selectedEdge === edge ? null : edge;
-  activeTab = "connections"; syncTabButtons();
   renderInspector();
 }
 
@@ -275,7 +471,6 @@ function removeGroup(id) {
 }
 function selectGroup(id) {
   selectedGroupId = selectedGroupId === id ? null : id;
-  activeTab = "groups"; syncTabButtons();
   renderInspector();
 }
 function applyGroupToChecked(groupId) {
@@ -363,6 +558,7 @@ function loadBoardIntoBuilder(board) {
   nextGroupId = computeNextGroupId(groups);
   selectedNodeId = null; selectedGroupId = null; selectedEdge = null;
   checkedNodeIds = new Set();
+  zoomLevel = 1;
   newEdgeStyle = "solid";
   undoStack = [];
   updateUndoButtonState();

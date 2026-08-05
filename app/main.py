@@ -22,6 +22,7 @@ from . import models
 from .database import SessionLocal, engine, run_migrations
 from .logging_config import configure_logging
 from .routers import admin, agents, boards, entries, filelinks, note_tabs, projects, reports, tasks
+from .version import get_version
 
 configure_logging()
 logger = logging.getLogger("raven.main")
@@ -121,6 +122,11 @@ app.include_router(boards.router)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/api/version")
+def version():
+    return {"version": get_version()}
 
 
 @app.get("/")
