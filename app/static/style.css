@@ -278,6 +278,119 @@ header .date {
   margin: 0 0 14px;
 }
 
+.stat-pairs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.stat-pair-card {
+  background: #0d0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+}
+
+.stat-half {
+  flex: 1;
+}
+
+.stat-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 0 14px;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stat-value.stat-warn { color: var(--warn); }
+.stat-value.stat-ok { color: var(--ok); }
+.stat-value.stat-accent { color: var(--accent); }
+
+.activity-chart-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.activity-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 48px;
+}
+
+.activity-bars .bar {
+  flex: 1;
+  background: var(--border);
+  border-radius: 3px;
+  min-height: 3px;
+}
+
+.activity-bars .bar.active {
+  background: var(--accent);
+}
+
+.activity-labels {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.activity-labels span {
+  flex: 1;
+  text-align: center;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.agent-list-section {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.agent-list-item .agent-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.agent-list-item:first-child .agent-count {
+  color: var(--accent);
+}
+
 textarea, input[type="text"], input[type="password"], input[type="date"], select {
   background: #0d0f14;
   border: 1px solid var(--border);

@@ -1,6 +1,8 @@
+from collections import Counter
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -10,6 +12,9 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 PRIOR_CONTEXT_PER_TASK = 5
+STATS_CHART_DAYS = 7
+STATS_STREAK_LOOKBACK_DAYS = 60
+STATS_TOP_AGENTS_LIMIT = 3
 
 
 def _bucket(db: Session, start: date, end: date) -> dict:
@@ -112,3 +117,81 @@ def digest_to_text(digest: dict) -> str:
 @router.get("/weekly")
 def weekly_report(start: date | None = None, end: date | None = None, db: Session = Depends(get_db)):
     return build_digest(db, start, end)
+
+
+def compute_today_stats(db: Session) -> dict:
+    """Snapshot for the Today screen: open/due/done counts, a day streak (consecutive
+    days with an entry or a completed task, today optional until it's over), and a
+    per-day activity count for the last STATS_CHART_DAYS days."""
+    today = date.today()
+    lookback_start = today - timedelta(days=STATS_STREAK_LOOKBACK_DAYS)
+
+    entry_dates = [
+        created_at.date()
+        for (created_at,) in db.query(models.Entry.created_at).filter(models.Entry.created_at >= lookback_start).all()
+    ]
+    completed_dates = [
+        completed_at.date()
+        for (completed_at,) in db.query(models.Task.completed_at)
+        .filter(models.Task.status == "closed", models.Task.completed_at >= lookback_start)
+        .all()
+        if completed_at is not None
+    ]
+    activity_counts = Counter(entry_dates) + Counter(completed_dates)
+
+    streak_days = 0
+    cursor = today if activity_counts.get(today) else today - timedelta(days=1)
+    while activity_counts.get(cursor):
+        streak_days += 1
+        cursor -= timedelta(days=1)
+
+    chart_start = today - timedelta(days=STATS_CHART_DAYS - 1)
+    daily_activity = [
+        {"date": (chart_start + timedelta(days=i)).isoformat(), "count": activity_counts.get(chart_start + timedelta(days=i), 0)}
+        for i in range(STATS_CHART_DAYS)
+    ]
+
+    open_tasks = db.query(models.Task).filter(models.Task.status != "closed").count()
+
+    due_cutoff = today + timedelta(days=6)
+    due_this_week = (
+        db.query(models.Task)
+        .filter(
+            models.Task.status != "closed",
+            models.Task.due_date.isnot(None),
+            models.Task.due_date >= today,
+            models.Task.due_date <= due_cutoff,
+        )
+        .count()
+    )
+
+    week_start = today - timedelta(days=6)
+    done_this_week = (
+        db.query(models.Task)
+        .filter(models.Task.status == "closed", models.Task.completed_at >= week_start, models.Task.completed_at < today + timedelta(days=1))
+        .count()
+    )
+
+    top_agents_rows = (
+        db.query(models.Agent.name, func.count(models.AgentRun.id).label("run_count"))
+        .join(models.AgentRun, models.AgentRun.agent_id == models.Agent.id)
+        .group_by(models.Agent.id)
+        .order_by(func.count(models.AgentRun.id).desc())
+        .limit(STATS_TOP_AGENTS_LIMIT)
+        .all()
+    )
+    top_agents = [{"name": name, "run_count": run_count} for name, run_count in top_agents_rows]
+
+    return {
+        "open_tasks": open_tasks,
+        "due_this_week": due_this_week,
+        "done_this_week": done_this_week,
+        "streak_days": streak_days,
+        "daily_activity": daily_activity,
+        "top_agents": top_agents,
+    }
+
+
+@router.get("/stats")
+def today_stats(db: Session = Depends(get_db)):
+    return compute_today_stats(db)

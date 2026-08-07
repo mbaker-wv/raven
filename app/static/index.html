@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Raven — Today</title>
-<link rel="stylesheet" href="/static/style.css?v=22">
+<link rel="stylesheet" href="/static/style.css?v=24">
 </head>
 <body>
 <div class="app-shell">
@@ -39,13 +39,47 @@
       </header>
 
       <section class="panel">
-        <h2>Reminders</h2>
-        <ul class="list" id="reminders-list"></ul>
+        <h2>Stats</h2>
+        <div class="stat-pairs">
+          <div class="stat-pair-card">
+            <div class="stat-half">
+              <div class="stat-label">Open tasks</div>
+              <div class="stat-value" id="stat-open-tasks">–</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-half">
+              <div class="stat-label">Due this week</div>
+              <div class="stat-value stat-warn" id="stat-due-week">–</div>
+            </div>
+          </div>
+          <div class="stat-pair-card">
+            <div class="stat-half">
+              <div class="stat-label">Done this week</div>
+              <div class="stat-value stat-ok" id="stat-done-week">–</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-half">
+              <div class="stat-label">Day streak</div>
+              <div class="stat-value stat-accent" id="stat-streak">–</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="activity-chart">
+          <div class="activity-chart-label">Last 7 days</div>
+          <div class="activity-bars" id="activity-bars"></div>
+          <div class="activity-labels" id="activity-labels"></div>
+        </div>
+
+        <div class="agent-list-section">
+          <div class="activity-chart-label">Most-run agents</div>
+          <ul class="list agent-list" id="agent-list"></ul>
+        </div>
       </section>
 
       <section class="panel">
-        <h2>Open Tasks</h2>
-        <ul class="list" id="tasks-list"></ul>
+        <h2>Reminders</h2>
+        <ul class="list" id="reminders-list"></ul>
       </section>
 
       <section class="panel">
@@ -57,6 +91,6 @@
 </div>
 
 <script src="/static/status.js?v=3"></script>
-<script src="/static/app.js?v=7"></script>
+<script src="/static/app.js?v=10"></script>
 </body>
 </html>

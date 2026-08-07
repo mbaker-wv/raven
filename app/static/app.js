@@ -113,31 +113,47 @@ async function loadEntries() {
   }
 }
 
-async function loadTasks() {
-  const today = todayISO();
-  const cutoff = addDays(today, 3);
-  const tasks = await api("/tasks");
-  const open = tasks.filter((t) => t.status !== "closed" && (!t.due_date || t.due_date <= cutoff));
-  const list = document.getElementById("tasks-list");
-  list.innerHTML = "";
-  if (open.length === 0) {
-    list.innerHTML = '<li class="empty">No open tasks.</li>';
-    return;
+async function loadStats() {
+  const stats = await api("/reports/stats");
+  document.getElementById("stat-open-tasks").textContent = stats.open_tasks;
+  document.getElementById("stat-due-week").textContent = stats.due_this_week;
+  document.getElementById("stat-done-week").textContent = stats.done_this_week;
+  document.getElementById("stat-streak").textContent = stats.streak_days;
+
+  // Square-root scale so a single outlier day (e.g. 17 vs 1) doesn't flatten every
+  // other bar down to an indistinguishable sliver.
+  const maxCount = Math.max(1, ...stats.daily_activity.map((d) => d.count));
+  const bars = document.getElementById("activity-bars");
+  const labels = document.getElementById("activity-labels");
+  bars.innerHTML = "";
+  labels.innerHTML = "";
+  for (const day of stats.daily_activity) {
+    const bar = document.createElement("div");
+    const heightPct = day.count === 0 ? 6 : Math.max(10, (Math.sqrt(day.count) / Math.sqrt(maxCount)) * 100);
+    bar.className = "bar" + (day.count > 0 ? " active" : "");
+    bar.style.height = `${heightPct}%`;
+    bar.title = `${day.date}: ${day.count}`;
+    bars.appendChild(bar);
+
+    const label = document.createElement("span");
+    label.textContent = new Date(day.date + "T00:00:00").toLocaleDateString([], { weekday: "short" }).slice(0, 3);
+    labels.appendChild(label);
   }
-  for (const t of open) {
-    const li = document.createElement("li");
-    li.className = "task-item";
-    const overdue = t.due_date && t.due_date < today;
-    const pname = projectName(t.project_id);
-    li.innerHTML = `
-      <a class="task-title-link" href="/tasks?task_id=${t.id}">${escapeHtml(t.title)}</a>
-      <span class="badge status-${t.status}">${t.status}</span>
-      ${pname ? `<span class="project-tag">${escapeHtml(pname)}</span>` : ""}
-      ${t.recurrence && t.recurrence !== "none" ? `<span class="tag-badge">↻ ${escapeHtml(t.recurrence)}</span>` : ""}
-      ${overdue ? `<span class="tag-badge overdue">Overdue</span>` : ""}
-      ${t.due_date ? `<span class="due ${overdue ? "overdue" : ""}">${t.due_date}</span>` : ""}
-    `;
-    list.appendChild(li);
+
+  const agentList = document.getElementById("agent-list");
+  agentList.innerHTML = "";
+  if (stats.top_agents.length === 0) {
+    agentList.innerHTML = '<li class="empty">No agents run yet.</li>';
+  } else {
+    for (const a of stats.top_agents) {
+      const li = document.createElement("li");
+      li.className = "agent-list-item";
+      li.innerHTML = `
+        <span class="agent-name">${escapeHtml(a.name)}</span>
+        <span class="agent-count">${a.run_count} run${a.run_count === 1 ? "" : "s"}</span>
+      `;
+      agentList.appendChild(li);
+    }
   }
 }
 
@@ -178,8 +194,8 @@ async function loadGreeting() {
 
 (async function init() {
   loadGreeting();
+  loadStats();
   await loadProjects();
   await loadReminders();
   await loadEntries();
-  await loadTasks();
 })();
