@@ -6,7 +6,7 @@ This guide covers four things:
   1. Installing Ollama (runs AI models locally on your machine)
   2. Installing the Llama 3.2 3B model
   3. Installing and running the Raven app
-  4. Creating a launcher to start it (Windows and macOS)
+  4. Creating a desktop launcher to start it (Windows and macOS)
 
 -----------------------------------------
 1. INSTALL OLLAMA
@@ -117,7 +117,9 @@ Steps:
      your projects/tasks/notes, it just means re-entering those two keys
      in Admin afterward.
 
-  4. Run the app:
+  4. Run the app (this starts the server directly in a terminal, opening
+     your browser to it - useful for development. For everyday use, skip
+     to section 4 below and use the desktop launcher instead):
 
        Windows:
          .venv\Scripts\python -m uvicorn app.main:app --port 8000
@@ -138,18 +140,23 @@ Once running, go to Admin in the app to:
 4. CREATE A LAUNCHER
 -----------------------------------------
 
+Raven runs as a proper desktop app: the launcher starts the server in the
+background and opens Raven in its own native window (via pywebview,
+installed as part of "pip install -r requirements.txt" in step 3 above) -
+no terminal window, no manually opening a browser tab. Closing the window
+shuts the server down too.
+
 Windows:
 
-A launcher file named "start_raven.bat" is included in this folder. It
-starts the server, which opens the app in your browser automatically.
+A launcher file named "start_raven_app.bat" is included in this folder.
 
 To pin it to your desktop:
 
-  1. Right-click "start_raven.bat" in this folder
+  1. Right-click "start_raven_app.bat" in this folder
   2. Choose "Show more options" (Windows 11) > "Send to" > "Desktop
      (create shortcut)"
      (On Windows 10, just "Send to" > "Desktop (create shortcut)")
-  3. A shortcut named "start_raven.bat - Shortcut" will appear on your
+  3. A shortcut named "start_raven_app.bat - Shortcut" will appear on your
      desktop. Rename it to "Raven" if you'd like.
 
 Give it the Raven icon (included as "raven_icon.ico" in this folder):
@@ -163,35 +170,36 @@ To launch Raven going forward:
   1. Make sure Ollama is running (it usually starts automatically after
      install; if not, run "ollama serve")
   2. Double-click the desktop shortcut
-  3. A console window opens and your browser loads http://localhost:8000
-  4. To stop the app, close the console window (or press Ctrl+C in it)
+  3. A brief console flash may appear, then the Raven window opens
+  4. To stop the app, just close the Raven window
 
 macOS:
 
-A launcher file named "start_raven.command" is included in this folder
-(already marked executable, so cloning the repo is all you need - no
-extra chmod step). Double-clicking it opens a Terminal window, starts
-the server, and Raven opens your browser automatically a moment later.
+A launcher file named "start_raven_app.command" is included in this
+folder (already marked executable, so cloning the repo is all you need -
+no extra chmod step). Double-clicking it starts the server in the
+background and opens Raven in its own window.
 
 First double-click only: macOS may show "cannot be opened because it is
 from an unidentified developer." If so, right-click (or Control-click)
-"start_raven.command" > Open, then click Open again to confirm. After
-that one-time approval, double-clicking works normally.
+"start_raven_app.command" > Open, then click Open again to confirm.
+After that one-time approval, double-clicking works normally.
 
 To keep it handy, either:
-  - Drag "start_raven.command" onto the Dock, or
+  - Drag "start_raven_app.command" onto the Dock, or
   - Right-click it in Finder > "Make Alias", then drag the alias to your
     Desktop and rename it "Raven"
 (macOS doesn't support custom icons on .command files without extra
 tooling, so it'll show the generic Terminal-script icon - that's normal
-and doesn't affect anything.)
+and doesn't affect anything. A Terminal window may flash briefly when you
+double-click it, then close on its own once the Raven window opens.)
 
 To launch Raven going forward:
   1. Make sure Ollama is running (it usually starts automatically after
      install; if not, run "ollama serve")
   2. Double-click the launcher (or its Dock/Desktop shortcut)
-  3. A Terminal window opens and your browser loads http://localhost:8000
-  4. To stop the app, close the Terminal window (or press Ctrl+C in it)
+  3. The Raven window opens on its own - no browser tab needed
+  4. To stop the app, just close the Raven window
 
 -----------------------------------------
 SHARING WITH SOMEONE ELSE
@@ -225,15 +233,18 @@ TROUBLESHOOTING
     - Make sure the model is pulled: ollama pull llama3.2:3b
 
 Port 8000 already in use:
-    - Run uvicorn with a different port, e.g. --port 8001
+    - If you're running the app manually via uvicorn (step 4 in section
+      3), pass a different port, e.g. --port 8001. The desktop launcher
+      (section 4) handles this automatically - it picks a free port on
+      its own if 8000 is taken.
 
 Python version issues:
     - Check your version with: python --version    (Windows)
                                 python3 --version   (macOS/Linux)
     - Raven requires Python 3.11+
 
-macOS: "start_raven.command cannot be opened" or opens in a text editor
-instead of Terminal:
+macOS: "start_raven_app.command cannot be opened" or opens in a text
+editor instead of Terminal:
     - Right-click (or Control-click) the file > Open, then confirm Open
       in the warning dialog. This is macOS blocking an unrecognized
       script the first time, not a problem with the file itself.
