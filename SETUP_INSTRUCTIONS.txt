@@ -175,31 +175,31 @@ To launch Raven going forward:
 
 macOS:
 
-A launcher file named "start_raven_app.command" is included in this
-folder (already marked executable, so cloning the repo is all you need -
-no extra chmod step). Double-clicking it starts the server in the
-background and opens Raven in its own window.
+A real app bundle named "Raven.app" is included in this folder, with the
+Raven icon already set. Double-clicking it launches the server invisibly
+in the background and opens Raven in its own window - no Terminal window
+appears at any point, since macOS runs app bundles directly rather than
+through a shell.
 
-First double-click only: macOS may show "cannot be opened because it is
-from an unidentified developer." If so, right-click (or Control-click)
-"start_raven_app.command" > Open, then click Open again to confirm.
-After that one-time approval, double-clicking works normally.
+First double-click only: macOS Gatekeeper may show a warning since the
+app isn't code-signed/notarized. If so, right-click (or Control-click)
+"Raven.app" > Open, then click Open again to confirm. After that
+one-time approval, double-clicking works normally.
 
-To keep it handy, either:
-  - Drag "start_raven_app.command" onto the Dock, or
-  - Right-click it in Finder > "Make Alias", then drag the alias to your
-    Desktop and rename it "Raven"
-(macOS doesn't support custom icons on .command files without extra
-tooling, so it'll show the generic Terminal-script icon - that's normal
-and doesn't affect anything. A Terminal window may flash briefly when you
-double-click it, then close on its own once the Raven window opens.)
+Raven.app has to stay inside the repo folder - it finds ".venv" and the
+Python code next to itself. To keep it handy without moving it:
+  - Drag "Raven.app" onto the Dock, or
+  - Right-click it in Finder > "Make Alias", then drag the alias (not
+    the app itself) to your Desktop or into /Applications
 
 To launch Raven going forward:
   1. Make sure Ollama is running (it usually starts automatically after
      install; if not, run "ollama serve")
-  2. Double-click the launcher (or its Dock/Desktop shortcut)
-  3. The Raven window opens on its own - no browser tab needed
-  4. To stop the app, just close the Raven window
+  2. Double-click Raven.app (or its Dock/Desktop/Applications shortcut)
+  3. The Raven window opens on its own - no terminal, no browser tab
+  4. To stop the app, close the Raven window (or Cmd+Q). Avoid Force
+     Quitting it from Activity Monitor - that skips the shutdown step
+     and can leave the background server process running.
 
 -----------------------------------------
 SHARING WITH SOMEONE ELSE
@@ -243,8 +243,9 @@ Python version issues:
                                 python3 --version   (macOS/Linux)
     - Raven requires Python 3.11+
 
-macOS: "start_raven_app.command cannot be opened" or opens in a text
-editor instead of Terminal:
+macOS: "Raven.app cannot be opened because it is from an unidentified
+developer":
     - Right-click (or Control-click) the file > Open, then confirm Open
-      in the warning dialog. This is macOS blocking an unrecognized
-      script the first time, not a problem with the file itself.
+      in the warning dialog. This is Gatekeeper blocking an unsigned app
+      the first time, not a problem with the app itself - only needed
+      once.
