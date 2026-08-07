@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Raven — Today</title>
-<link rel="stylesheet" href="/static/style.css?v=24">
+<link rel="stylesheet" href="/static/style.css?v=25">
 </head>
 <body>
 <div class="app-shell">
@@ -63,17 +63,41 @@
               <div class="stat-value stat-accent" id="stat-streak">–</div>
             </div>
           </div>
+          <div class="stat-pair-card">
+            <div class="stat-half">
+              <div class="stat-label">Actions taken</div>
+              <div class="stat-value stat-accent" id="stat-actions-week">–</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-half">
+              <div class="stat-label">Today</div>
+              <div class="stat-value" id="stat-actions-today">–</div>
+            </div>
+          </div>
         </div>
 
         <div class="activity-chart">
-          <div class="activity-chart-label">Last 7 days</div>
+          <div class="activity-chart-label">Entries &amp; completed tasks — last 7 days</div>
           <div class="activity-bars" id="activity-bars"></div>
           <div class="activity-labels" id="activity-labels"></div>
         </div>
 
         <div class="agent-list-section">
-          <div class="activity-chart-label">Most-run agents</div>
-          <ul class="list agent-list" id="agent-list"></ul>
+          <div class="kpi-columns">
+            <div class="kpi-col">
+              <div class="kpi-col-card">
+                <div class="activity-chart-label">Most-run agents — 7d trend</div>
+                <div class="kpi-rows" id="agent-kpi-rows"></div>
+              </div>
+            </div>
+            <div class="kpi-col">
+              <div class="kpi-col-card">
+                <div class="activity-chart-label">Most-used skills — 7d trend</div>
+                <div class="kpi-rows" id="skill-kpi-rows"></div>
+                <p class="skill-narrative hidden" id="skill-narrative"></p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -91,6 +115,6 @@
 </div>
 
 <script src="/static/status.js?v=3"></script>
-<script src="/static/app.js?v=10"></script>
+<script src="/static/app.js?v=11"></script>
 </body>
 </html>

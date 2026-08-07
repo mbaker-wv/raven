@@ -76,10 +76,24 @@ async function loadAgents() {
   container.innerHTML = "";
   if (agents.length === 0) {
     container.innerHTML = '<div class="empty">No agents yet. Create one to get started.</div>';
-    return;
+  } else {
+    for (const agent of agents) {
+      container.appendChild(renderAgentCard(agent));
+    }
   }
-  for (const agent of agents) {
-    container.appendChild(renderAgentCard(agent));
+  renderSkillUsage();
+}
+
+// Built-in skills only ever change by editing tools.py, so there's no API for this list —
+// just keep these keys in sync with SKILLS in app/tools.py.
+const SKILL_KEYS = ["create_task", "complete_task", "log_entry"];
+
+function renderSkillUsage() {
+  for (const key of SKILL_KEYS) {
+    const el = document.getElementById(`skill-used-by-${key}`);
+    if (!el) continue;
+    const users = agents.filter((a) => (a.enabled_skills || "").split(",").includes(key)).map((a) => a.name);
+    el.textContent = users.length === 0 ? "Not used by any agent yet." : `Used by ${users.length} agent${users.length === 1 ? "" : "s"} — ${users.join(", ")}`;
   }
 }
 
@@ -284,6 +298,23 @@ document.addEventListener("keydown", (ev) => {
     closeHelpPanel();
   }
 });
+
+function showAgentsTab() {
+  document.getElementById("tab-agents").classList.remove("hidden");
+  document.getElementById("tab-skills").classList.add("hidden");
+  document.getElementById("tab-btn-agents").classList.add("active");
+  document.getElementById("tab-btn-skills").classList.remove("active");
+}
+
+function showSkillsTab() {
+  document.getElementById("tab-skills").classList.remove("hidden");
+  document.getElementById("tab-agents").classList.add("hidden");
+  document.getElementById("tab-btn-skills").classList.add("active");
+  document.getElementById("tab-btn-agents").classList.remove("active");
+}
+
+document.getElementById("tab-btn-agents").addEventListener("click", showAgentsTab);
+document.getElementById("tab-btn-skills").addEventListener("click", showSkillsTab);
 
 (async function init() {
   await loadAgents();

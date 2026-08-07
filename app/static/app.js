@@ -113,12 +113,86 @@ async function loadEntries() {
   }
 }
 
+// Builds a smoothed sparkline path by drawing quadratic curves through the midpoints
+// of each pair of points — rounds off the joins without needing full spline math.
+function smoothSparkPath(points) {
+  let line = `M${points[0].x},${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const mx = (prev.x + curr.x) / 2;
+    const my = (prev.y + curr.y) / 2;
+    line += ` Q${prev.x},${prev.y} ${mx},${my}`;
+  }
+  const last = points[points.length - 1];
+  line += ` L${last.x},${last.y}`;
+  const area = `${line} L${last.x},20 L${points[0].x},20 Z`;
+  return { line, area };
+}
+
+// A simple, robust "is this trending up or down" heuristic: compare the average of the
+// first half of the window to the average of the second half, rather than comparing
+// single days (which one noisy day could flip either direction).
+function trendDirection(daily) {
+  const mid = Math.floor(daily.length / 2);
+  const firstAvg = daily.slice(0, mid).reduce((a, b) => a + b, 0) / Math.max(1, mid);
+  const secondAvg = daily.slice(mid).reduce((a, b) => a + b, 0) / Math.max(1, daily.length - mid);
+  if (secondAvg > firstAvg * 1.15) return "up";
+  if (secondAvg < firstAvg * 0.85) return "down";
+  return "flat";
+}
+
+function kpiRowMarkup(name, countLabel, daily) {
+  // Square-root scale, same reasoning as the daily activity bars: a single outlier day
+  // shouldn't flatten the rest of the week into an indistinguishable line.
+  const maxCount = Math.max(1, ...daily);
+  const points = daily.map((count, i) => {
+    const norm = count === 0 ? 0 : Math.sqrt(count) / Math.sqrt(maxCount);
+    return { x: (i / (daily.length - 1)) * 60, y: 18 - norm * 16 };
+  });
+  const { line, area } = smoothSparkPath(points);
+  const last = points[points.length - 1];
+  const trend = trendDirection(daily);
+  const glyph = trend === "up" ? "▲" : trend === "down" ? "▼" : "–";
+
+  return `
+    <div class="kpi-row">
+      <span class="kpi-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+      <svg class="sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
+        <path class="spark-area" d="${area}"></path>
+        <path class="spark-line" d="${line}"></path>
+        <circle class="spark-dot" cx="${last.x}" cy="${last.y}" r="2.2"></circle>
+      </svg>
+      <span class="kpi-trend${trend === "flat" ? " flat" : ""}" title="${trend[0].toUpperCase() + trend.slice(1)} over the last 7 days">${glyph}</span>
+      <span class="kpi-count">${countLabel}</span>
+    </div>
+  `;
+}
+
+const SKILL_NARRATIVE_PHRASES = {
+  create_task: (n) => `created <b>${n}</b> task${n === 1 ? "" : "s"}`,
+  complete_task: (n) => `closed <b>${n}</b> task${n === 1 ? "" : "s"}`,
+  log_entry: (n) => `logged <b>${n}</b> ${n === 1 ? "entry" : "entries"}`,
+};
+
+function buildSkillNarrative(skillCounts) {
+  const parts = Object.entries(SKILL_NARRATIVE_PHRASES)
+    .filter(([tool]) => skillCounts[tool])
+    .map(([tool, phrase]) => phrase(skillCounts[tool]));
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return `Agents ${parts[0]} for you this week.`;
+  if (parts.length === 2) return `Agents ${parts[0]} and ${parts[1]} for you this week.`;
+  return `Agents ${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]} for you this week.`;
+}
+
 async function loadStats() {
   const stats = await api("/reports/stats");
   document.getElementById("stat-open-tasks").textContent = stats.open_tasks;
   document.getElementById("stat-due-week").textContent = stats.due_this_week;
   document.getElementById("stat-done-week").textContent = stats.done_this_week;
   document.getElementById("stat-streak").textContent = stats.streak_days;
+  document.getElementById("stat-actions-week").textContent = stats.actions_taken_week;
+  document.getElementById("stat-actions-today").textContent = stats.actions_taken_today;
 
   // Square-root scale so a single outlier day (e.g. 17 vs 1) doesn't flatten every
   // other bar down to an indistinguishable sliver.
@@ -140,21 +214,22 @@ async function loadStats() {
     labels.appendChild(label);
   }
 
-  const agentList = document.getElementById("agent-list");
-  agentList.innerHTML = "";
-  if (stats.top_agents.length === 0) {
-    agentList.innerHTML = '<li class="empty">No agents run yet.</li>';
-  } else {
-    for (const a of stats.top_agents) {
-      const li = document.createElement("li");
-      li.className = "agent-list-item";
-      li.innerHTML = `
-        <span class="agent-name">${escapeHtml(a.name)}</span>
-        <span class="agent-count">${a.run_count} run${a.run_count === 1 ? "" : "s"}</span>
-      `;
-      agentList.appendChild(li);
-    }
-  }
+  const agentRows = document.getElementById("agent-kpi-rows");
+  agentRows.innerHTML =
+    stats.top_agents.length === 0
+      ? '<div class="empty">No agents run yet.</div>'
+      : stats.top_agents.map((a) => kpiRowMarkup(a.name, `${a.run_count} run${a.run_count === 1 ? "" : "s"}`, a.daily)).join("");
+
+  const skillRows = document.getElementById("skill-kpi-rows");
+  skillRows.innerHTML =
+    stats.top_skills.length === 0
+      ? '<div class="empty">No skills used yet.</div>'
+      : stats.top_skills.map((s) => kpiRowMarkup(s.name, String(s.call_count), s.daily)).join("");
+
+  const narrativeEl = document.getElementById("skill-narrative");
+  const narrative = buildSkillNarrative(stats.skill_counts);
+  narrativeEl.classList.toggle("hidden", !narrative);
+  if (narrative) narrativeEl.innerHTML = narrative;
 }
 
 function isoWeekNumber(date) {

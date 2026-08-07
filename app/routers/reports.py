@@ -1,3 +1,4 @@
+import json
 from collections import Counter
 from datetime import date, timedelta
 
@@ -5,7 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import models, schemas, tools
 from ..database import get_db
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -15,6 +16,16 @@ PRIOR_CONTEXT_PER_TASK = 5
 STATS_CHART_DAYS = 7
 STATS_STREAK_LOOKBACK_DAYS = 60
 STATS_TOP_AGENTS_LIMIT = 3
+STATS_TOP_SKILLS_LIMIT = 3
+
+
+def _parse_tool_calls(raw: str | None) -> list[dict]:
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return []
 
 
 def _bucket(db: Session, start: date, end: date) -> dict:
@@ -172,15 +183,54 @@ def compute_today_stats(db: Session) -> dict:
         .count()
     )
 
-    top_agents_rows = (
-        db.query(models.Agent.name, func.count(models.AgentRun.id).label("run_count"))
-        .join(models.AgentRun, models.AgentRun.agent_id == models.Agent.id)
-        .group_by(models.Agent.id)
-        .order_by(func.count(models.AgentRun.id).desc())
-        .limit(STATS_TOP_AGENTS_LIMIT)
+    # Agent runs and the skills (tool calls) they made, both bucketed by day over the
+    # same STATS_CHART_DAYS window as daily_activity, so the two sparkline lists below
+    # can share one query pass instead of re-deriving the window twice.
+    chart_runs = (
+        db.query(models.AgentRun.created_at, models.AgentRun.tool_calls, models.Agent.name)
+        .join(models.Agent, models.Agent.id == models.AgentRun.agent_id)
+        .filter(models.AgentRun.created_at >= chart_start)
         .all()
     )
-    top_agents = [{"name": name, "run_count": run_count} for name, run_count in top_agents_rows]
+
+    agent_daily: dict[str, list[int]] = {}
+    agent_totals: Counter = Counter()
+    skill_daily: dict[str, list[int]] = {}
+    skill_totals: Counter = Counter()
+    actions_taken_today = 0
+    actions_taken_week = 0
+
+    for created_at, tool_calls_raw, agent_name in chart_runs:
+        run_date = created_at.date()
+        day_idx = (run_date - chart_start).days
+        agent_totals[agent_name] += 1
+        if 0 <= day_idx < STATS_CHART_DAYS:
+            agent_daily.setdefault(agent_name, [0] * STATS_CHART_DAYS)[day_idx] += 1
+
+        for call in _parse_tool_calls(tool_calls_raw):
+            tool_name = call.get("tool")
+            if not tool_name:
+                continue
+            skill_totals[tool_name] += 1
+            actions_taken_week += 1
+            if run_date == today:
+                actions_taken_today += 1
+            if 0 <= day_idx < STATS_CHART_DAYS:
+                skill_daily.setdefault(tool_name, [0] * STATS_CHART_DAYS)[day_idx] += 1
+
+    top_agents = [
+        {"name": name, "run_count": count, "daily": agent_daily.get(name, [0] * STATS_CHART_DAYS)}
+        for name, count in agent_totals.most_common(STATS_TOP_AGENTS_LIMIT)
+    ]
+    top_skills = [
+        {
+            "name": tools.SKILLS.get(tool_name, {}).get("label", tool_name),
+            "tool": tool_name,
+            "call_count": count,
+            "daily": skill_daily.get(tool_name, [0] * STATS_CHART_DAYS),
+        }
+        for tool_name, count in skill_totals.most_common(STATS_TOP_SKILLS_LIMIT)
+    ]
 
     return {
         "open_tasks": open_tasks,
@@ -189,6 +239,10 @@ def compute_today_stats(db: Session) -> dict:
         "streak_days": streak_days,
         "daily_activity": daily_activity,
         "top_agents": top_agents,
+        "top_skills": top_skills,
+        "skill_counts": dict(skill_totals),
+        "actions_taken_week": actions_taken_week,
+        "actions_taken_today": actions_taken_today,
     }
 
 

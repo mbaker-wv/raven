@@ -7,6 +7,7 @@ from .routers.tasks import create_task, update_task
 SKILLS = {
     "create_task": {
         "name": "create_task",
+        "label": "Create a task",
         "description": "Create a new task in Raven.",
         "input_schema": {
             "type": "object",
@@ -20,6 +21,7 @@ SKILLS = {
     },
     "complete_task": {
         "name": "complete_task",
+        "label": "Complete a task",
         "description": "Mark an existing Raven task as closed/done.",
         "input_schema": {
             "type": "object",
@@ -31,6 +33,7 @@ SKILLS = {
     },
     "log_entry": {
         "name": "log_entry",
+        "label": "Log an entry",
         "description": "Log a work entry/note in Raven.",
         "input_schema": {
             "type": "object",
@@ -56,7 +59,13 @@ def parse_enabled_skills(raw: str | None) -> list[str]:
 
 
 def build_tool_definitions(enabled: list[str]) -> list[dict]:
-    return [SKILLS[key] for key in enabled if key in SKILLS]
+    """Claude's API rejects tool objects with unrecognized keys, so only forward the
+    fields it actually expects — not display-only metadata like 'label'."""
+    return [
+        {"name": SKILLS[key]["name"], "description": SKILLS[key]["description"], "input_schema": SKILLS[key]["input_schema"]}
+        for key in enabled
+        if key in SKILLS
+    ]
 
 
 def _handle_create_task(db: Session, **args) -> str:
