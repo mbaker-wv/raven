@@ -122,6 +122,17 @@ def run_migrations():
             conn.execute(text("ALTER TABLE boards ADD COLUMN groups TEXT DEFAULT '[]'"))
             conn.commit()
 
+        learn_item_columns = [row[1] for row in conn.execute(text("PRAGMA table_info(learn_items)"))]
+        if learn_item_columns:
+            learn_item_migrations = [
+                ("checks", "ALTER TABLE learn_items ADD COLUMN checks TEXT"),
+                ("checked_at", "ALTER TABLE learn_items ADD COLUMN checked_at DATETIME"),
+            ]
+            for column, ddl in learn_item_migrations:
+                if column not in learn_item_columns:
+                    conn.execute(text(ddl))
+            conn.commit()
+
         _seed_example_board(conn)
         _encrypt_legacy_secrets(conn)
         _create_missing_indexes(conn)

@@ -2030,3 +2030,39 @@ button.ghost-icon:hover {
 .check-row:hover { background: rgba(255, 255, 255, 0.03); }
 .check-row input[type="checkbox"] { width: 14px; height: 14px; flex-shrink: 0; cursor: pointer; }
 
+/* ---- Learn page ---- */
+.learn-error { color: var(--danger); font-size: 12.5px; margin-top: 8px; min-height: 1em; }
+.learn-summary { color: var(--muted); font-size: 13.5px; line-height: 1.55; margin: 0 0 16px; }
+.learn-tab-body.hidden { display: none; }
+.learn-empty { color: var(--muted); font-size: 13px; }
+
+.learn-chunk { background: #0d0f14; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+.learn-chunk h3 { margin: 0 0 8px; font-size: 14px; color: var(--text); }
+.learn-chunk p { margin: 0 0 10px; line-height: 1.55; color: var(--text); }
+.learn-chunk textarea { min-height: 60px; }
+
+.learn-field-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.learn-field-row input[type="text"] { flex: 1; min-width: 0; }
+.learn-remove-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; width: 26px; height: 26px; flex-shrink: 0; cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+.learn-remove-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+.learn-quiz-item { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+.learn-quiz-question { font-weight: 600; margin-bottom: 8px; line-height: 1.5; }
+.learn-quiz-answer { color: var(--muted); margin-top: 10px; line-height: 1.5; }
+.learn-quiz-answer.hidden { display: none; }
+
+.learn-map-frame { overflow: auto; }
+.learn-map-frame svg { max-width: 100%; }
+
+.learn-check-bar { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); gap: 12px; }
+.learn-check-status { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.learn-check-status.stale { color: var(--warn); }
+
+.learn-check-badge { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; padding: 2px 8px; border-radius: 999px; margin-bottom: 8px; }
+.learn-check-badge.supported { color: var(--ok); border: 1px solid var(--ok); }
+.learn-check-badge.unsupported { color: var(--warn); border: 1px solid var(--warn); }
+.learn-check-badge.contradicts { color: var(--danger); border: 1px solid var(--danger); }
+.learn-check-note { font-size: 12px; color: var(--muted); margin: -4px 0 10px; }
+
+.checks-stale .learn-check-badge, .checks-stale .learn-check-note { display: none; }
+

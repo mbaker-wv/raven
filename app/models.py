@@ -94,6 +94,22 @@ class Board(Base):
     project = relationship("Project", back_populates="boards")
 
 
+class LearnItem(Base):
+    __tablename__ = "learn_items"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False, default="Untitled")
+    source_text = Column(Text, nullable=False, default="")
+    summary = Column(Text, nullable=True)
+    chunks = Column(Text, nullable=True)  # JSON: [{heading, plain_text, key_terms}]
+    mermaid = Column(Text, nullable=True)  # mermaid mindmap syntax
+    quiz = Column(Text, nullable=True)  # JSON: [{question, answer}]
+    checks = Column(Text, nullable=True)  # JSON: {overall, chunk_checks: [{index, status, note}], quiz_checks: [...]}
+    checked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class Settings(Base):
     __tablename__ = "settings"
 

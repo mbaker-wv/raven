@@ -164,6 +164,55 @@ class BoardOut(BoardBase):
         return json.loads(v) if isinstance(v, str) else v
 
 
+class LearnItemBase(BaseModel):
+    title: str = "Untitled"
+    source_text: str = ""
+
+
+class LearnItemCreate(LearnItemBase):
+    pass
+
+
+class LearnItemUpdate(BaseModel):
+    title: Optional[str] = None
+    source_text: Optional[str] = None
+    summary: Optional[str] = None
+    chunks: Optional[list[dict]] = None
+    mermaid: Optional[str] = None
+    quiz: Optional[list[dict]] = None
+
+
+class LearnItemOut(LearnItemBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    summary: Optional[str] = None
+    chunks: list[dict] = []
+    mermaid: Optional[str] = None
+    quiz: list[dict] = []
+    checks: Optional[dict] = None
+    checked_at: Optional[datetime] = None
+    updated_at: datetime
+
+    @field_validator("chunks", "quiz", mode="before")
+    @classmethod
+    def _parse_json(cls, v):
+        if not v:
+            return []
+        return json.loads(v) if isinstance(v, str) else v
+
+    @field_validator("checks", mode="before")
+    @classmethod
+    def _parse_checks(cls, v):
+        if not v:
+            return None
+        return json.loads(v) if isinstance(v, str) else v
+
+
+class LearnImportUrl(BaseModel):
+    url: str
+
+
 class SettingsOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

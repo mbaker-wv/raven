@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raven — Learn</title>
+<link rel="stylesheet" href="/static/style.css?v=38">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-header">
+      <div class="brand"><span class="brand-label">Raven</span></div>
+      <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Collapse sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      </button>
+    </div>
+    <nav>
+      <a href="/" title="Today"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.6"/><path d="M8 1.6v1.6M8 12.8v1.6M2.6 8h1.6M11.8 8h1.6M4.3 4.3l1.1 1.1M10.6 10.6l1.1 1.1M11.7 4.3l-1.1 1.1M5.4 10.6l-1.1 1.1"/></svg><span>Today</span></a>
+      <a href="/tasks" title="Tasks"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg><span>Tasks</span></a>
+      <a href="/notes" title="Notes"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5h5l3 3v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/><path d="M9 2.5v3h3"/><path d="M5.3 8.5h5.4M5.3 11h5.4"/></svg><span>Notes</span></a>
+      <a href="/learn" class="active" title="Learn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L2 5.8 8 8.6l6-2.8L8 3z"/><path d="M4 7.3v3.4c0 .9 1.8 2 4 2s4-1.1 4-2V7.3"/><path d="M13 6v4"/></svg><span>Learn</span></a>
+      <a href="/activity-log" title="Activity Log"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5h2.3l1.3-4 2 7 1.3-4.5 1 1.5H14"/></svg><span>Activity Log</span></a>
+      <a href="/agents" title="Agents"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="10" height="7.5" rx="2"/><path d="M8 2.5v2.5"/><circle cx="8" cy="2" r="0.9" fill="currentColor" stroke="none"/><path d="M6 8.5v1M10 8.5v1"/><path d="M1.5 7.5v3M14.5 7.5v3"/></svg><span>Agents</span></a>
+      <a href="/boards" title="Boards"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="6" height="4" rx="1"/><rect x="8.5" y="9.5" width="6" height="4" rx="1"/><path d="M4.5 6.5v2a1 1 0 0 0 1 1H8m3 0V9.5"/></svg><span>Boards</span></a>
+      <a href="/admin" title="Admin"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 2.2v1.8M8 12v1.8M13.8 8h-1.8M4 8H2.2M12.1 3.9l-1.3 1.3M5.2 10.8L3.9 12.1M12.1 12.1l-1.3-1.3M5.2 5.2L3.9 3.9"/></svg><span>Admin</span></a>
+    </nav>
+    <a href="/admin" class="sidebar-status" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">Checking…</span>
+    </a>
+  </aside>
+  <main class="main-content">
+    <div class="container">
+      <header>
+        <h1>Learn</h1>
+      </header>
+
+      <section class="panel">
+        <div class="row" id="learn-items" style="margin-bottom: 14px;"></div>
+      </section>
+
+      <section class="panel" id="learn-source-panel">
+        <div class="row between">
+          <input type="text" id="learn-title-input" placeholder="Untitled" style="font-size: 15px; font-weight: 600; border: none; background: transparent; padding: 4px 0; flex: 1;">
+          <span class="save-chip" id="learn-save-status"></span>
+        </div>
+
+        <textarea id="learn-source-text" placeholder="Paste an article, your notes, or anything dense you're trying to understand..." style="min-height: 160px; margin: 10px 0;"></textarea>
+
+        <div class="row between">
+          <div class="row">
+            <input type="text" id="learn-url-input" placeholder="Or paste a URL to import" style="width: 280px;">
+            <button class="secondary" id="learn-import-url-btn" type="button">Import URL</button>
+            <select id="learn-notes-select" style="width: 200px;">
+              <option value="">Import from Notes…</option>
+            </select>
+          </div>
+          <button class="btn-primary" id="learn-generate-btn" type="button">Generate</button>
+        </div>
+        <div class="learn-error" id="learn-error"></div>
+      </section>
+
+      <section class="panel" id="learn-output-panel" style="display: none;">
+        <div class="tab-strip">
+          <button class="tab-btn active" data-tab="outline" type="button">Outline</button>
+          <button class="tab-btn" data-tab="map" type="button">Map</button>
+          <button class="tab-btn" data-tab="quiz" type="button">Quiz</button>
+        </div>
+
+        <p class="learn-summary" id="learn-summary"></p>
+
+        <div class="learn-check-bar row between">
+          <span class="learn-check-status" id="learn-check-status">Not checked yet — verify this against your source before trusting it.</span>
+          <button class="secondary" id="learn-check-btn" type="button">Check accuracy</button>
+        </div>
+
+        <div class="learn-tab-body" id="learn-tab-outline">
+          <div id="learn-outline-list"></div>
+        </div>
+        <div class="learn-tab-body hidden" id="learn-tab-map">
+          <div class="row between" style="margin-bottom: 10px;">
+            <span></span>
+            <button class="secondary" id="learn-map-edit-btn" type="button">Edit map</button>
+          </div>
+          <div class="learn-map-frame" id="learn-map-frame"></div>
+          <div id="learn-map-editor" style="display: none; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+            <div class="mermaid-editor-toolbar">
+              <button class="btn-primary" id="learn-map-apply-btn" type="button">Apply changes</button>
+              <span class="mermaid-editor-error" id="learn-map-editor-error"></span>
+            </div>
+            <textarea id="learn-map-code" class="mermaid-code-editor" spellcheck="false" autocomplete="off" style="height: auto; min-height: 220px; background: #0d0f14;"></textarea>
+          </div>
+        </div>
+        <div class="learn-tab-body hidden" id="learn-tab-quiz">
+          <div class="row between" style="margin-bottom: 10px;">
+            <span></span>
+            <button class="secondary" id="learn-quiz-edit-btn" type="button">Edit quiz</button>
+          </div>
+          <div id="learn-quiz-list"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="/static/vendor/mermaid.min.js?v=1"></script>
+<script src="/static/status.js?v=3"></script>
+<script src="/static/learn.js?v=3"></script>
+</body>
+</html>

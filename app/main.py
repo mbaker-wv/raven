@@ -21,7 +21,7 @@ UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 from . import models
 from .database import SessionLocal, engine, run_migrations
 from .logging_config import configure_logging
-from .routers import admin, agents, boards, entries, filelinks, note_tabs, projects, reports, tasks
+from .routers import admin, agents, boards, entries, filelinks, learn, note_tabs, projects, reports, tasks
 from .version import get_version
 
 configure_logging()
@@ -119,6 +119,7 @@ app.include_router(agents.router)
 app.include_router(admin.router)
 app.include_router(note_tabs.router)
 app.include_router(boards.router)
+app.include_router(learn.router)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -162,3 +163,8 @@ def boards_page():
 @app.get("/admin")
 def admin_page():
     return FileResponse(STATIC_DIR / "admin.html", headers=NO_CACHE_HEADERS)
+
+
+@app.get("/learn")
+def learn_page():
+    return FileResponse(STATIC_DIR / "learn.html", headers=NO_CACHE_HEADERS)
