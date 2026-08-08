@@ -625,5 +625,22 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   });
 });
 
+function openHelpPanel() {
+  document.getElementById("help-backdrop").classList.add("open");
+}
+
+function closeHelpPanel() {
+  document.getElementById("help-backdrop").classList.remove("open");
+}
+
+document.getElementById("open-help-btn").addEventListener("click", openHelpPanel);
+document.getElementById("close-help-btn").addEventListener("click", closeHelpPanel);
+document.getElementById("help-backdrop").addEventListener("click", (ev) => {
+  if (ev.target.id === "help-backdrop") closeHelpPanel();
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") closeHelpPanel();
+});
+
 loadItems();
 loadNoteTabsIntoSelect();

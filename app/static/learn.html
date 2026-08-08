@@ -33,6 +33,9 @@
     <div class="container">
       <header>
         <h1>Learn</h1>
+        <div class="row">
+          <button class="ghost-icon" id="open-help-btn" type="button" aria-label="How to use Learn" title="How to use Learn">?</button>
+        </div>
       </header>
 
       <section class="panel">
@@ -103,8 +106,93 @@
   </main>
 </div>
 
+<!-- Setup help slide-over -->
+<div class="help-backdrop" id="help-backdrop">
+  <div class="help-panel">
+    <div class="row between" style="margin-bottom: 2px;">
+      <h3>How to use Learn</h3>
+      <button class="ghost-icon" id="close-help-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="sub">Turn dense text into something you can actually study — an outline, a map, a quiz, and a check that the AI didn't drift from your source.</div>
+
+    <span class="help-provider-tag" style="color: var(--muted);">Get material in</span>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Paste text</strong> directly into the box — an article, an email, your own notes, anything dense.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Import URL</strong> fetches a web page's text for you, server-side.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Import from Notes</strong> pulls in one of your existing Notes tabs.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">Generate</span>
+    <div class="help-step">
+      <span class="num">1</span>
+      <p>Click <strong>Generate</strong> to build a plain-language outline, a mind map, and a quiz from whatever's in the source box.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">2</span>
+      <p><strong>Regenerate</strong> replaces all three — it'll ask you to confirm first if you've already got output, so you don't lose edits by accident.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">The three views</span>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Outline</strong> — small plain-language chunks with key terms called out. Edit any of it inline; it autosaves.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Map</strong> — the same material as a mind map, so you can see how the pieces relate. <strong>Edit map</strong> lets you hand-edit the raw diagram.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Quiz</strong> — try to answer in your head before clicking "Reveal answer." Retrieval like this beats re-reading for actually remembering something. <strong>Edit quiz</strong> lets you change or add/remove questions.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">Check accuracy</span>
+    <div class="help-step">
+      <span class="num">!</span>
+      <p>Compares the outline and quiz against your source text and flags anything that isn't actually supported, or that contradicts it. It's checking faithfulness to <em>your source</em>, not fact-checking the source against the world — if the source itself is wrong, this won't catch that.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">i</span>
+      <p>Any edit marks the check as stale and hides the badges until you recheck, so you always know whether what you're looking at has actually been verified.</p>
+    </div>
+
+    <hr class="help-divider">
+
+    <span class="help-provider-tag" style="color: var(--muted);">A few ways to use it</span>
+    <div class="help-step">
+      <span class="num">★</span>
+      <p><strong>A dense article or report</strong> — paste or Import URL, Generate, read the Outline first instead of the raw text.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">★</span>
+      <p><strong>Your own messy notes</strong> — Import from Notes, Generate, and turn rough notes into something structured enough to actually study from.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">★</span>
+      <p><strong>Self-testing before it matters</strong> — Quiz tab, answer before revealing, so you find the gaps before a real conversation or decision does.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">★</span>
+      <p><strong>Fixing something that's off</strong> — if a chunk or answer isn't quite right, edit it directly rather than accepting it as-is.</p>
+    </div>
+  </div>
+</div>
+
 <script src="/static/vendor/mermaid.min.js?v=1"></script>
 <script src="/static/status.js?v=3"></script>
-<script src="/static/learn.js?v=3"></script>
+<script src="/static/learn.js?v=4"></script>
 </body>
 </html>
