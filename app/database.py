@@ -106,6 +106,8 @@ def run_migrations():
                 ("ai_provider", "ALTER TABLE agents ADD COLUMN ai_provider TEXT DEFAULT 'ollama'"),
                 ("run_after_agent_id", "ALTER TABLE agents ADD COLUMN run_after_agent_id INTEGER REFERENCES agents(id)"),
                 ("enabled_skills", "ALTER TABLE agents ADD COLUMN enabled_skills TEXT"),
+                ("vuln_report_path", "ALTER TABLE agents ADD COLUMN vuln_report_path TEXT"),
+                ("vuln_report_previous_path", "ALTER TABLE agents ADD COLUMN vuln_report_previous_path TEXT"),
             ]
             for column, ddl in agent_migrations:
                 if column not in agent_columns:
@@ -116,6 +118,14 @@ def run_migrations():
         if agent_run_columns and "tool_calls" not in agent_run_columns:
             conn.execute(text("ALTER TABLE agent_runs ADD COLUMN tool_calls TEXT"))
             conn.commit()
+        if agent_run_columns and "vuln_report_data" not in agent_run_columns:
+            conn.execute(text("ALTER TABLE agent_runs ADD COLUMN vuln_report_data TEXT"))
+            conn.commit()
+
+        # Superseded by manual old/new report selection (agent.vuln_report_previous_path) —
+        # backlog comparison no longer relies on Raven's own run history.
+        conn.execute(text("DROP TABLE IF EXISTS vuln_report_snapshots"))
+        conn.commit()
 
         board_columns = [row[1] for row in conn.execute(text("PRAGMA table_info(boards)"))]
         if board_columns and "groups" not in board_columns:

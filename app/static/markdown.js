@@ -14,6 +14,14 @@ function _mdInline(text) {
 const _MD_HEADING = /^(#{1,6})\s+(.*)$/;
 const _MD_BULLET = /^[-*•]\s+/;
 const _MD_NUMBERED = /^\d+[.)]\s+/;
+const _MD_TABLE_SEP = /^[\s|:-]*-[\s|:-]*$/;
+
+function _splitTableRow(line) {
+  let trimmed = line.trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+  return trimmed.split("|").map((cell) => cell.trim());
+}
 
 function _mdRenderLines(lines) {
   const parts = [];
@@ -24,6 +32,20 @@ function _mdRenderLines(lines) {
       const level = Math.min(heading[1].length + 2, 6); // keep below the page's own h1/h2
       parts.push(`<h${level}>${_mdInline(heading[2])}</h${level}>`);
       i++;
+      continue;
+    }
+
+    if (lines[i].includes("|") && i + 1 < lines.length && _MD_TABLE_SEP.test(lines[i + 1])) {
+      const headerCells = _splitTableRow(lines[i]);
+      i += 2; // header row + separator row
+      const bodyRows = [];
+      while (i < lines.length && lines[i].includes("|") && !_MD_HEADING.test(lines[i])) {
+        bodyRows.push(_splitTableRow(lines[i]));
+        i++;
+      }
+      const thead = `<thead><tr>${headerCells.map((c) => `<th>${_mdInline(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = `<tbody>${bodyRows.map((row) => `<tr>${row.map((c) => `<td>${_mdInline(c)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+      parts.push(`<div class="md-table-wrap"><table class="md-table">${thead}${tbody}</table></div>`);
       continue;
     }
 

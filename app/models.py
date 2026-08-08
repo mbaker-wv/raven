@@ -156,10 +156,12 @@ class Agent(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     system_prompt = Column(Text, nullable=False)
-    context_mode = Column(String, nullable=False, default="none")  # none / digest
+    context_mode = Column(String, nullable=False, default="none")  # none / digest / vuln_report
     ai_provider = Column(String, nullable=False, default="ollama")  # ollama / claude
     run_after_agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
     enabled_skills = Column(String, nullable=True)  # comma-separated: create_task,complete_task,log_entry
+    vuln_report_path = Column(String, nullable=True)  # file, or a folder to pick the newest .csv from
+    vuln_report_previous_path = Column(String, nullable=True)  # optional: file/folder to diff the backlog against
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     run_after = relationship("Agent", remote_side=[id])
@@ -176,6 +178,7 @@ class AgentRun(Base):
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False, index=True)
     output = Column(Text, nullable=False)
     tool_calls = Column(Text, nullable=True)  # JSON array: [{"tool","args","result","is_error"}, ...]
+    vuln_report_data = Column(Text, nullable=True)  # JSON: severity summary + composition + priority systems
     context_start = Column(Date, nullable=True)
     context_end = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

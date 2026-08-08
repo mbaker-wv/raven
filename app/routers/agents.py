@@ -4,12 +4,14 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import models, schemas, tools
+from .. import models, schemas, tools, vuln_report
 from ..ai_client import call_ai, call_ai_with_tools
 from ..database import get_db
 from .reports import build_digest, digest_to_text
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
+
+MAX_RUN_HISTORY = 3
 
 
 def _check_run_after(db: Session, run_after_agent_id: int | None, agent_id: int | None) -> None:
@@ -70,6 +72,26 @@ def delete_agent(agent_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
+def _trim_run_history(db: Session, agent_id: int) -> None:
+    # Tie-break on id, not just created_at — runs created in the same wall-clock second
+    # (timestamp resolution, not realistic given LLM latency, but seen under test) would
+    # otherwise sort arbitrarily instead of by actual insertion order.
+    keep_ids = (
+        db.query(models.AgentRun.id)
+        .filter(models.AgentRun.agent_id == agent_id)
+        .order_by(models.AgentRun.created_at.desc(), models.AgentRun.id.desc())
+        .limit(MAX_RUN_HISTORY)
+        .subquery()
+    )
+    deleted = (
+        db.query(models.AgentRun)
+        .filter(models.AgentRun.agent_id == agent_id, models.AgentRun.id.notin_(db.query(keep_ids.c.id)))
+        .delete(synchronize_session=False)
+    )
+    if deleted:
+        db.commit()
+
+
 def _execute_agent(db: Session, agent: models.Agent, start: date | None, end: date | None, visited: set[int]) -> models.AgentRun:
     if agent.id in visited:
         raise HTTPException(400, f"Chain cycle detected at agent '{agent.name}'.")
@@ -78,6 +100,7 @@ def _execute_agent(db: Session, agent: models.Agent, start: date | None, end: da
     prompt_parts = [agent.system_prompt]
 
     settings = db.query(models.Settings).first()
+    byline = None
     if settings and (settings.profile_name or settings.profile_role):
         byline = (
             f"{settings.profile_name}, {settings.profile_role}"
@@ -96,10 +119,22 @@ def _execute_agent(db: Session, agent: models.Agent, start: date | None, end: da
         prompt_parts.append(f"\nOutput from '{upstream.name}':\n{upstream_run.output}")
 
     ctx_start = ctx_end = None
+    vuln_report_data = None
     if agent.context_mode == "digest":
         digest = build_digest(db, start, end)
         ctx_start, ctx_end = date.fromisoformat(digest["start"]), date.fromisoformat(digest["end"])
         prompt_parts.append(f"\n{digest_to_text(digest)}")
+    elif agent.context_mode == "vuln_report":
+        vuln_report_text, vuln_report_data = vuln_report.build_vuln_context(agent)
+        vuln_report_data["prepared_by"] = byline
+        vuln_report_data["report_date"] = date.today().isoformat()
+        prompt_parts.append(f"\n{vuln_report_text}")
+        prompt_parts.append(
+            "\nThe report header (prepared by, date, source) and every table above are already shown to the "
+            "user separately before your response, in full — don't restate them anywhere in your response, "
+            "including as a 'Prepared by' / 'Report date' / 'Source' line further down. Open straight into the "
+            "narrative analysis."
+        )
 
     enabled_skills = tools.parse_enabled_skills(agent.enabled_skills)
     use_tools = agent.ai_provider == "claude" and enabled_skills
@@ -125,12 +160,14 @@ def _execute_agent(db: Session, agent: models.Agent, start: date | None, end: da
         agent_id=agent.id,
         output=output,
         tool_calls=json.dumps(tool_call_records) if tool_call_records else None,
+        vuln_report_data=json.dumps(vuln_report_data) if vuln_report_data else None,
         context_start=ctx_start,
         context_end=ctx_end,
     )
     db.add(run)
     db.commit()
     db.refresh(run)
+    _trim_run_history(db, agent.id)
     return run
 
 

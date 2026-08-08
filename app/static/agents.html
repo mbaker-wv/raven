@@ -205,7 +205,22 @@
         <select id="agent-context-mode">
           <option value="none">No context (prompt only)</option>
           <option value="digest">Recent activity digest</option>
+          <option value="vuln_report">Vulnerability report</option>
         </select>
+      </div>
+      <div class="form-group hidden" id="vuln-report-path-group">
+        <label for="agent-vuln-report-path">Vulnerability report path</label>
+        <div class="path-input-row">
+          <input type="text" id="agent-vuln-report-path" placeholder="/path/to/report.csv or a folder of reports">
+          <button type="button" class="secondary path-browse-btn" data-target="agent-vuln-report-path">Browse…</button>
+        </div>
+      </div>
+      <div class="form-group hidden" id="vuln-report-previous-path-group">
+        <label for="agent-vuln-report-previous-path">Previous report path (optional — for backlog comparison)</label>
+        <div class="path-input-row">
+          <input type="text" id="agent-vuln-report-previous-path" placeholder="/path/to/old-report.csv">
+          <button type="button" class="secondary path-browse-btn" data-target="agent-vuln-report-previous-path">Browse…</button>
+        </div>
       </div>
       <div class="form-group">
         <label for="agent-runafter">Runs after</label>
@@ -252,6 +267,10 @@
     <div class="help-step">
       <span class="num">→</span>
       <p><strong>Recent activity digest</strong> appends entries/tasks from a date range you pick each run, so the agent can reference what actually happened.</p>
+    </div>
+    <div class="help-step">
+      <span class="num">→</span>
+      <p><strong>Vulnerability report</strong> parses the CSV (or newest CSV in a folder) at the path you set on the agent, computes open/backlog counts, and appends the results as text — works with Ollama too, since the parsing happens before the model is ever called, not as a tool it decides to use.</p>
     </div>
 
     <hr class="help-divider">
@@ -330,7 +349,7 @@
 </div>
 
 <script src="/static/status.js?v=3"></script>
-<script src="/static/markdown.js?v=1"></script>
-<script src="/static/agents.js?v=10"></script>
+<script src="/static/markdown.js?v=2"></script>
+<script src="/static/agents.js?v=18"></script>
 </body>
 </html>

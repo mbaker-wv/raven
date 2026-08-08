@@ -895,6 +895,42 @@ select.status-select {
   font-weight: 600;
 }
 
+/* Applies to any .md-table anywhere in the app — LLM-generated (inside .polished-text)
+   or built directly from computed data (e.g. the vuln-report tables) — so all tabular
+   output looks consistent regardless of source. */
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 10px;
+}
+
+table.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+
+table.md-table th,
+table.md-table td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+table.md-table th {
+  background: #0d0f14;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+table.md-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .error-text {
   color: var(--danger);
   font-size: 13px;
@@ -942,6 +978,17 @@ select.status-select {
 
 .agent-output:empty {
   display: none;
+}
+
+.copy-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.copy-row .copy-btn {
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
 details.agent-history {
@@ -1074,6 +1121,22 @@ button.ghost-icon:hover {
 
 .field-row .form-group {
   flex: 1;
+}
+
+.path-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.path-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.path-input-row .path-browse-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 13px;
 }
 
 .provider-grid {
@@ -1400,6 +1463,48 @@ button.ghost-icon:hover {
   color: var(--muted);
   font-size: 12.5px;
   line-height: 1.55;
+}
+
+.vuln-report-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
+.vuln-report-tables {
+  margin-bottom: 14px;
+}
+
+.vuln-report-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.vuln-report-header span {
+  display: block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 1px;
+}
+
+.vuln-report-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 0 14px;
+}
+
+.vuln-report-meta b {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .actions-taken {

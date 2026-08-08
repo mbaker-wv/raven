@@ -40,6 +40,24 @@ def _pick_port() -> int:
         return sock.getsockname()[1]
 
 
+class _Api:
+    """Exposed to the page as window.pywebview.api.* — lets the (otherwise browser-only)
+    frontend open a native file picker for things like the vulnerability report path."""
+
+    def __init__(self) -> None:
+        self.window: webview.Window | None = None
+
+    def pick_file(self) -> str | None:
+        if not self.window:
+            return None
+        result = self.window.create_file_dialog(
+            webview.FileDialog.OPEN,
+            allow_multiple=False,
+            file_types=("CSV Files (*.csv)", "All files (*.*)"),
+        )
+        return result[0] if result else None
+
+
 def _wait_until_ready(url: str, proc: subprocess.Popen, timeout: float) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -72,7 +90,8 @@ def main() -> None:
 
     try:
         _wait_until_ready(f"{base_url}/api/version", server_proc, STARTUP_TIMEOUT_SECONDS)
-        webview.create_window("Raven", base_url, width=1280, height=860, min_size=(800, 600))
+        api = _Api()
+        api.window = webview.create_window("Raven", base_url, width=1280, height=860, min_size=(800, 600), js_api=api)
         webview.start()
     finally:
         if server_proc.poll() is None:

@@ -266,10 +266,12 @@ class AgentBase(BaseModel):
     name: str
     description: Optional[str] = None
     system_prompt: str
-    context_mode: Literal["none", "digest"] = "none"
+    context_mode: Literal["none", "digest", "vuln_report"] = "none"
     ai_provider: Literal["ollama", "claude"] = "ollama"
     run_after_agent_id: Optional[int] = None
     enabled_skills: Optional[str] = None  # comma-separated: create_task,complete_task,log_entry
+    vuln_report_path: Optional[str] = None  # file, or a folder to pick the newest .csv from
+    vuln_report_previous_path: Optional[str] = None  # optional: old report to diff the backlog against
 
 
 class AgentCreate(AgentBase):
@@ -280,10 +282,12 @@ class AgentUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     system_prompt: Optional[str] = None
-    context_mode: Optional[Literal["none", "digest"]] = None
+    context_mode: Optional[Literal["none", "digest", "vuln_report"]] = None
     ai_provider: Optional[Literal["ollama", "claude"]] = None
     run_after_agent_id: Optional[int] = None
     enabled_skills: Optional[str] = None
+    vuln_report_path: Optional[str] = None
+    vuln_report_previous_path: Optional[str] = None
 
 
 class AgentOut(AgentBase):
@@ -308,6 +312,7 @@ class AgentRunOut(BaseModel):
     agent_id: int
     output: str
     tool_calls: list[ToolCallOut] = []
+    vuln_report_data: Optional[dict] = None
     context_start: Optional[date] = None
     context_end: Optional[date] = None
     created_at: datetime
@@ -317,6 +322,13 @@ class AgentRunOut(BaseModel):
     def _parse_tool_calls(cls, v):
         if not v:
             return []
+        return json.loads(v) if isinstance(v, str) else v
+
+    @field_validator("vuln_report_data", mode="before")
+    @classmethod
+    def _parse_vuln_report_data(cls, v):
+        if not v:
+            return None
         return json.loads(v) if isinstance(v, str) else v
 
 

@@ -32,12 +32,180 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// Swaps our CSS-class-based markup for inline styles, since pasting into another app
+// (an email compose box, Word, Docs) only carries inline styles and semantic tags —
+// classes referencing our own stylesheet don't travel with the clipboard. Light colors
+// throughout since the destination is almost always a white background, not our dark theme.
+function _emailSafeHtml(html) {
+  return html
+    .replace(/<div class="md-table-wrap">/g, '<div style="overflow-x:auto;margin:0 0 10px;">')
+    .replace(/<table class="md-table">/g, '<table style="border-collapse:collapse;width:100%;font-size:13px;color:#111;">')
+    .replace(
+      /<th>/g,
+      '<th style="border:1px solid #ccc;padding:6px 10px;text-align:left;background:#f2f2f2;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;color:#555;">'
+    )
+    .replace(/<td>/g, '<td style="border:1px solid #ccc;padding:6px 10px;text-align:left;">')
+    .replace(
+      /<div class="vuln-report-header">/g,
+      '<div style="display:flex;flex-wrap:wrap;gap:6px 20px;border:1px solid #ccc;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#111;">'
+    )
+    .replace(/<span>/g, '<span style="display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em;color:#777;margin-bottom:1px;">')
+    .replace(/<h3 class="vuln-report-title">/g, '<h3 style="font-size:18px;font-weight:600;margin:0 0 12px;color:#111;">')
+    .replace(/<div class="vuln-report-meta">/g, '<div style="font-size:12px;color:#555;margin:4px 0 14px;">')
+    .replace(/<div class="section-heading">/g, '<div style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:#777;margin:18px 0 8px;">')
+    .replace(/<div class="polished-text">/g, '<div style="color:#111;line-height:1.5;">');
+}
+
+// Writes both HTML and plain-text to the clipboard when html is given, so pasting into a
+// rich destination (email, Word, Docs) preserves real tables instead of literal pipe
+// characters; plain-text-only destinations still get the readable markdown fallback.
+async function copyText(text, btn, html) {
+  try {
+    if (html && window.ClipboardItem) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([text], { type: "text/plain" }),
+          "text/html": new Blob([_emailSafeHtml(html)], { type: "text/html" }),
+        }),
+      ]);
+    } else {
+      throw new Error("rich copy unavailable");
+    }
+  } catch (err) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err2) {
+      // Clipboard API can be unavailable outside a secure context; fall back to the
+      // old hidden-textarea + execCommand trick rather than failing silently.
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+  }
+  const original = btn.textContent;
+  btn.textContent = "Copied!";
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = original;
+    btn.disabled = false;
+  }, 1500);
+}
+
 function renderToolCalls(toolCalls) {
   if (!toolCalls || toolCalls.length === 0) return "";
   const items = toolCalls
     .map((tc) => `<li class="${tc.is_error ? "tool-call-error" : ""}">${escapeHtml(tc.result)}</li>`)
     .join("");
   return `<div class="actions-taken"><div class="actions-taken-label">Actions taken</div><ul>${items}</ul></div>`;
+}
+
+function _mdTable(headers, rows) {
+  const thead = `<thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>`;
+  const tbody = `<tbody>${rows.map((row) => `<tr>${row.map((c) => `<td>${escapeHtml(String(c))}</td>`).join("")}</tr>`).join("")}</tbody>`;
+  return `<div class="md-table-wrap"><table class="md-table">${thead}${tbody}</table></div>`;
+}
+
+// Renders the deterministic vuln-report numbers as real tables — computed directly by
+// the parser, not dependent on the agent's narrative choosing to mention them.
+function renderVulnReportTables(data) {
+  if (!data) return "";
+  const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
+
+  let html = '<div class="vuln-report-tables">';
+  html += '<div class="vuln-report-header">';
+  if (data.prepared_by) html += `<div><span>Prepared by</span>${escapeHtml(data.prepared_by)}</div>`;
+  if (data.report_date) html += `<div><span>Date</span>${data.report_date}</div>`;
+  html += `<div><span>Source</span>${escapeHtml(data.source_path.split("/").pop())} (${data.file_modified})</div>`;
+  html += "</div>";
+  html += _mdTable(
+    ["Severity", "Open", `Open past threshold`],
+    [
+      ["Critical", data.critical_open, `${data.critical_open_over_15d} (${data.critical_pct}%)`],
+      ["Severe", data.severe_open, `${data.severe_open_over_30d} (${data.severe_pct}%)`],
+    ]
+  );
+  html += `<div class="vuln-report-meta">Total open findings: <b>${data.total_open}</b>${
+    data.skipped_rows ? ` &middot; ${data.skipped_rows} row(s) skipped from aging (missing/unparseable published date)` : ""
+  }</div>`;
+
+  if (data.backlog) {
+    const b = data.backlog;
+    html += `<div class="section-heading">Backlog vs ${escapeHtml(b.previous_source)} (${b.previous_modified})</div>`;
+    html += _mdTable(
+      ["", "Previous", "Current", "Change"],
+      [
+        ["Total open", b.previous_total, data.total_open, signed(b.delta_total)],
+        ["Critical", b.previous_critical, data.critical_open, signed(b.delta_critical)],
+        ["Severe", b.previous_severe, data.severe_open, signed(b.delta_severe)],
+      ]
+    );
+  }
+
+  if (data.top_critical_titles.length) {
+    html += '<div class="section-heading">What\'s driving the Critical backlog</div>';
+    html += _mdTable(
+      ["Finding", "Findings", "% of Critical"],
+      data.top_critical_titles.map((t) => [t.title, t.finding_count, `${t.pct_of_tier}%`])
+    );
+  }
+
+  if (data.top_severe_titles.length) {
+    html += '<div class="section-heading">What\'s driving the Severe backlog</div>';
+    html += _mdTable(
+      ["Finding", "Findings", "% of Severe"],
+      data.top_severe_titles.map((t) => [t.title, t.finding_count, `${t.pct_of_tier}%`])
+    );
+  }
+
+  if (data.top_assets.length) {
+    html += '<div class="section-heading">Systems to prioritize</div>';
+    html += _mdTable(
+      ["System", "Critical", "Severe", "Total open", "Risk score"],
+      data.top_assets.map((a) => [a.label, a.critical_count, a.severe_count, a.finding_count, a.risk_score])
+    );
+  }
+
+  html += "</div>";
+  return html;
+}
+
+// Pulls a leading "# Title" line (if the agent's narrative opens with one) out of the raw
+// output so it can be hoisted above the deterministic header/tables instead of getting
+// stuck below them — reuses markdown.js's own heading pattern (_MD_HEADING).
+function extractLeadingHeading(text) {
+  if (!text) return { title: null, rest: text };
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === "") i++;
+  const match = i < lines.length ? lines[i].match(_MD_HEADING) : null;
+  if (!match) return { title: null, rest: text };
+  return { title: match[2], rest: lines.slice(i + 1).join("\n") };
+}
+
+// The agent's own instructions sometimes have it restate "Prepared by" / "Report date" /
+// "Source" itself, worded a different way each time ("By ...", "Prepared by:", "Report
+// authored by ...") — matching label wording is a losing game, so strip by two signals
+// instead: known label patterns, and (separately) any short line containing the exact
+// byline text we already know from the deterministic header, whatever leads into it.
+const _REDUNDANT_METADATA_LINE = /^\*{0,2}(prepared by|report date|reporting period|data source|source|by)\*{0,2}\s*:?\s*.*/i;
+const _SHORT_LINE_MAX_CHARS = 100;
+
+function stripRedundantMetadataLines(text, preparedBy) {
+  if (!text) return text;
+  return text
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (_REDUNDANT_METADATA_LINE.test(trimmed)) return false;
+      if (preparedBy && trimmed.length <= _SHORT_LINE_MAX_CHARS && trimmed.toLowerCase().includes(preparedBy.toLowerCase())) return false;
+      return true;
+    })
+    .join("\n");
 }
 
 let agents = [];
@@ -150,7 +318,17 @@ async function runAgent(agent, card) {
       url += `?start=${start}&end=${end}`;
     }
     const run = await api(url, { method: "POST" });
-    output.innerHTML = `<div class="polished-text">${renderMarkdown(run.output)}</div>${renderToolCalls(run.tool_calls)}`;
+    let { title, rest } = run.vuln_report_data ? extractLeadingHeading(run.output) : { title: null, rest: run.output };
+    if (run.vuln_report_data) rest = stripRedundantMetadataLines(rest, run.vuln_report_data.prepared_by);
+    const reportHtml =
+      (title ? `<h3 class="vuln-report-title">${escapeHtml(title)}</h3>` : "") +
+      renderVulnReportTables(run.vuln_report_data) +
+      `<div class="polished-text">${renderMarkdown(rest)}</div>`;
+    output.innerHTML = `
+      <div class="copy-row"><button class="secondary copy-btn" type="button">Copy</button></div>
+      ${reportHtml}${renderToolCalls(run.tool_calls)}
+    `;
+    output.querySelector(".copy-btn").addEventListener("click", (ev) => copyText(run.output, ev.currentTarget, reportHtml));
     const details = card.querySelector("details.agent-history");
     if (details.open) loadHistory(agent.id, card);
   } catch (err) {
@@ -171,13 +349,23 @@ async function loadHistory(agentId, card) {
   for (const r of runs) {
     const li = document.createElement("li");
     const time = new Date(r.created_at + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    let { title, rest } = r.vuln_report_data ? extractLeadingHeading(r.output) : { title: null, rest: r.output };
+    if (r.vuln_report_data) rest = stripRedundantMetadataLines(rest, r.vuln_report_data.prepared_by);
+    const reportHtml =
+      (title ? `<h3 class="vuln-report-title">${escapeHtml(title)}</h3>` : "") +
+      renderVulnReportTables(r.vuln_report_data) +
+      `<div class="polished-text">${renderMarkdown(rest)}</div>`;
     li.innerHTML = `
       <div class="row between">
         <div class="note-time">${time}</div>
-        <button class="secondary run-delete-btn" style="padding: 2px 8px; font-size: 11px; color: var(--danger); border-color: var(--danger);">Delete</button>
+        <div class="row">
+          <button class="secondary run-copy-btn" type="button" style="padding: 2px 8px; font-size: 11px;">Copy</button>
+          <button class="secondary run-delete-btn" style="padding: 2px 8px; font-size: 11px; color: var(--danger); border-color: var(--danger);">Delete</button>
+        </div>
       </div>
-      ${renderMarkdown(r.output)}${renderToolCalls(r.tool_calls)}
+      ${reportHtml}${renderToolCalls(r.tool_calls)}
     `;
+    li.querySelector(".run-copy-btn").addEventListener("click", (ev) => copyText(r.output, ev.currentTarget, reportHtml));
     li.querySelector(".run-delete-btn").addEventListener("click", async () => {
       if (!confirm("Delete this run? This can't be undone.")) return;
       await api(`/agents/${agentId}/runs/${r.id}`, { method: "DELETE" });
@@ -206,6 +394,28 @@ function selectProvider(provider) {
   document.getElementById("skills-ollama-hint").classList.toggle("visible", !isClaude);
 }
 
+function updateVulnReportPathVisibility() {
+  const contextMode = document.getElementById("agent-context-mode").value;
+  const show = contextMode === "vuln_report";
+  document.getElementById("vuln-report-path-group").classList.toggle("hidden", !show);
+  document.getElementById("vuln-report-previous-path-group").classList.toggle("hidden", !show);
+}
+
+// Native file picker via pywebview (only available when running through the actual
+// Raven desktop app, not a plain browser tab — falls back to manual typing otherwise).
+async function pickReportFile(targetInputId) {
+  if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.pick_file) {
+    alert("File picker is only available in the Raven desktop app. Type or paste the path directly.");
+    return;
+  }
+  const path = await window.pywebview.api.pick_file();
+  if (path) document.getElementById(targetInputId).value = path;
+}
+
+document.querySelectorAll(".path-browse-btn").forEach((btn) => {
+  btn.addEventListener("click", () => pickReportFile(btn.dataset.target));
+});
+
 let editingAgentId = null;
 
 function openAgentModal(agent) {
@@ -217,6 +427,9 @@ function openAgentModal(agent) {
   document.getElementById("agent-description").value = agent ? (agent.description || "") : "";
   document.getElementById("agent-prompt").value = agent ? agent.system_prompt : "";
   document.getElementById("agent-context-mode").value = agent ? agent.context_mode : "none";
+  document.getElementById("agent-vuln-report-path").value = agent ? (agent.vuln_report_path || "") : "";
+  document.getElementById("agent-vuln-report-previous-path").value = agent ? (agent.vuln_report_previous_path || "") : "";
+  updateVulnReportPathVisibility();
   selectProvider(agent ? agent.ai_provider : "ollama");
 
   const enabledSkills = agent && agent.enabled_skills ? agent.enabled_skills.split(",").filter(Boolean) : [];
@@ -250,6 +463,9 @@ async function createAgent() {
   if (!name || !system_prompt) return;
   const description = document.getElementById("agent-description").value.trim() || null;
   const context_mode = document.getElementById("agent-context-mode").value;
+  const vuln_report_path = context_mode === "vuln_report" ? document.getElementById("agent-vuln-report-path").value.trim() || null : null;
+  const vuln_report_previous_path =
+    context_mode === "vuln_report" ? document.getElementById("agent-vuln-report-previous-path").value.trim() || null : null;
   const ai_provider = document.getElementById("agent-provider").value;
   const run_after_agent_id = document.getElementById("agent-runafter").value || null;
   const enabled_skills =
@@ -262,6 +478,8 @@ async function createAgent() {
     description,
     system_prompt,
     context_mode,
+    vuln_report_path,
+    vuln_report_previous_path,
     ai_provider,
     run_after_agent_id: run_after_agent_id ? Number(run_after_agent_id) : null,
     enabled_skills,
@@ -286,6 +504,7 @@ document.getElementById("agent-modal-backdrop").addEventListener("click", (ev) =
 document.getElementById("card-ollama").addEventListener("click", () => selectProvider("ollama"));
 document.getElementById("card-claude").addEventListener("click", () => selectProvider("claude"));
 document.getElementById("agent-runafter").addEventListener("change", updateChainPreview);
+document.getElementById("agent-context-mode").addEventListener("change", updateVulnReportPathVisibility);
 document.getElementById("open-help-btn").addEventListener("click", openHelpPanel);
 document.getElementById("open-guide-btn").addEventListener("click", openHelpPanel);
 document.getElementById("close-help-btn").addEventListener("click", closeHelpPanel);
