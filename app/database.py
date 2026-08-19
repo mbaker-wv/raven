@@ -187,7 +187,7 @@ def _seed_example_board(conn) -> None:
         {"from": "n3", "to": "n5", "label": "no"},
     ]
     conn.execute(
-        text("INSERT INTO boards (name, direction, nodes, edges) VALUES (:name, 'TD', :nodes, :edges)"),
+        text("INSERT INTO boards (name, direction, nodes, edges, groups) VALUES (:name, 'TD', :nodes, :edges, '[]')"),
         {"name": "Example: Task lifecycle", "nodes": json.dumps(nodes), "edges": json.dumps(edges)},
     )
     conn.commit()
