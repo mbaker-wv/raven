@@ -15,7 +15,11 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 NO_CACHE_HEADERS = {"Cache-Control": "no-store"}
-ALLOWED_ORIGIN_HOSTS = {"127.0.0.1", "localhost"}
+# Extra host allowed on top of the loopback defaults, e.g. a Tailscale MagicDNS name, for
+# deployments reached over a private network instead of purely on localhost.
+ALLOWED_ORIGIN_HOSTS = {"127.0.0.1", "localhost"} | (
+    {os.environ["RAVEN_EXTRA_ALLOWED_ORIGIN_HOST"]} if os.environ.get("RAVEN_EXTRA_ALLOWED_ORIGIN_HOST") else set()
+)
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 from . import models
