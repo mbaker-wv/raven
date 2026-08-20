@@ -2,7 +2,8 @@
   const sidebar = document.getElementById("app-sidebar");
   const toggle = document.getElementById("sidebar-toggle");
   if (!sidebar || !toggle) return;
-  const collapsed = localStorage.getItem("sidebar-collapsed") === "1";
+  const stored = localStorage.getItem("sidebar-collapsed");
+  const collapsed = stored === null ? true : stored === "1";
   sidebar.classList.toggle("collapsed", collapsed);
   toggle.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
   toggle.addEventListener("click", () => {

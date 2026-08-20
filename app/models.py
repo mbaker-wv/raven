@@ -106,6 +106,9 @@ class LearnItem(Base):
     quiz = Column(Text, nullable=True)  # JSON: [{question, answer}]
     checks = Column(Text, nullable=True)  # JSON: {overall, chunk_checks: [{index, status, note}], quiz_checks: [...]}
     checked_at = Column(DateTime(timezone=True), nullable=True)
+    mode = Column(String, nullable=False, default="reading")  # "reading" | "topic"
+    topic = Column(String, nullable=True)
+    plan = Column(Text, nullable=True)  # JSON: [{title, description, content, quiz: [{question, answer}], completed}]
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -134,6 +137,24 @@ class Settings(Base):
     b2_status = Column(String, nullable=True)  # ok / error, cached last-known result
     b2_status_detail = Column(Text, nullable=True)
     b2_status_checked_at = Column(DateTime(timezone=True), nullable=True)
+    imap_host = Column(String, nullable=True)
+    imap_port = Column(Integer, nullable=False, default=993)
+    imap_username = Column(String, nullable=True)
+    imap_password = Column(EncryptedString, nullable=True)
+    imap_folder = Column(String, nullable=False, default="INBOX")
+    imap_status = Column(String, nullable=True)  # ok / error, cached last-known result
+    imap_status_detail = Column(Text, nullable=True)
+    imap_status_checked_at = Column(DateTime(timezone=True), nullable=True)
+    graph_client_id = Column(String, nullable=True)
+    graph_tenant_id = Column(String, nullable=True)
+    graph_folder = Column(String, nullable=False, default="inbox")
+    graph_account = Column(String, nullable=True)  # connected mailbox address, for display
+    graph_access_token = Column(EncryptedString, nullable=True)
+    graph_refresh_token = Column(EncryptedString, nullable=True)
+    graph_token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    graph_status = Column(String, nullable=True)  # ok / error, cached last-known result
+    graph_status_detail = Column(Text, nullable=True)
+    graph_status_checked_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     @property
@@ -147,6 +168,18 @@ class Settings(Base):
     @property
     def b2_configured(self) -> bool:
         return bool(self.b2_key_id and self.b2_application_key and self.b2_bucket_name)
+
+    @property
+    def imap_password_set(self) -> bool:
+        return bool(self.imap_password)
+
+    @property
+    def imap_configured(self) -> bool:
+        return bool(self.imap_host and self.imap_username and self.imap_password)
+
+    @property
+    def graph_configured(self) -> bool:
+        return bool(self.graph_client_id and self.graph_tenant_id and self.graph_refresh_token)
 
 
 class Agent(Base):

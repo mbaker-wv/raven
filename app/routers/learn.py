@@ -1,4 +1,5 @@
 import json
+import re
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -74,6 +75,106 @@ QUIZ:
 __QUIZ_JSON__
 """
 
+PLAN_INSTRUCTIONS = """You are building a self-study course plan for someone learning a new topic, broken into short, focused micro-lessons.
+
+Respond with ONLY a single JSON object (no prose, no markdown code fences) shaped exactly like this:
+{
+  "title": "short course title for this topic",
+  "sections": [
+    {
+      "title": "short section title",
+      "description": "1-2 sentence description of what this section covers",
+      "lessons": [
+        {"title": "short micro-lesson title", "description": "1 sentence on the single narrow idea this micro-lesson covers"}
+      ]
+    }
+  ]
+}
+
+Rules:
+- Produce 4-8 sections, ordered from foundational to advanced, that together cover the topic thoroughly.
+- Each section should have 3-4 micro-lessons. Each micro-lesson covers exactly ONE narrow idea — something a person could read and understand in about 5-8 minutes. Do not make a micro-lesson broad enough to need its own sub-topics.
+- Keep titles short and descriptions concrete about what will be learned.
+- Output nothing but the JSON object.
+
+TOPIC:
+"""
+
+LESSON_INSTRUCTIONS = """You are writing one short, focused micro-lesson of a self-study course on the topic below.
+
+Respond with ONLY a single JSON object (no prose, no markdown code fences) shaped exactly like this:
+{
+  "content": "the full micro-lesson content, 2-4 short paragraphs in plain language, plain text (no markdown headers)",
+  "quiz": [
+    {"question": "a short question testing understanding of this micro-lesson", "answer": "the answer"}
+  ]
+}
+
+Rules:
+- Write the content itself (not an outline of it) — teach the one narrow idea directly, in plain language.
+- Keep it tight: 2-4 short paragraphs, roughly 150-300 words total, readable in about 5-8 minutes. Do not try to cover the whole section — only this micro-lesson's specific narrow idea.
+- Use the section title/description and sibling micro-lesson titles only for context on scope and ordering — don't repeat material that belongs in a sibling micro-lesson.
+- quiz should have exactly 2 short questions testing recall/understanding of this micro-lesson's content.
+- Output nothing but the JSON object.
+
+TOPIC:
+__TOPIC__
+
+SECTION:
+__SECTION_JSON__
+
+THIS MICRO-LESSON:
+__THIS_LESSON_JSON__
+"""
+
+MORE_SECTIONS_INSTRUCTIONS = """You are extending a self-study course plan with more advanced sections, each broken into short, focused micro-lessons.
+
+Respond with ONLY a single JSON object (no prose, no markdown code fences) shaped exactly like this:
+{
+  "sections": [
+    {
+      "title": "short section title",
+      "description": "1-2 sentence description of what this section covers",
+      "lessons": [
+        {"title": "short micro-lesson title", "description": "1 sentence on the single narrow idea this micro-lesson covers"}
+      ]
+    }
+  ]
+}
+
+Rules:
+- Produce 2 new sections that go deeper or more advanced on the topic, building on what's already covered.
+- Each section should have 3-4 micro-lessons, each covering exactly one narrow idea (5-8 minutes to read).
+- Do not repeat or rephrase any section already in the existing section list below.
+- Output nothing but the JSON object.
+
+TOPIC:
+__TOPIC__
+
+EXISTING SECTION LIST (do not repeat these):
+__SECTION_LIST_JSON__
+"""
+
+EXPLAIN_SECTION_INSTRUCTIONS = """You are a patient tutor listening to a student explain a section of a course back to you in their own words, the way they might explain it to a friend.
+
+Respond with ONLY a single JSON object (no prose, no markdown code fences) shaped exactly like this:
+{
+  "feedback": "a few sentences: what they got right, what's missing or inaccurate, in an encouraging, specific, teacher-like tone"
+}
+
+Rules:
+- Judge the explanation against the section content below, not against outside knowledge.
+- Be specific about any gaps or inaccuracies, but stay encouraging.
+- Keep it to 3-5 sentences.
+- Output nothing but the JSON object.
+
+SECTION CONTENT:
+__SECTION_CONTENT__
+
+STUDENT'S EXPLANATION:
+__EXPLANATION__
+"""
+
 
 def _extract_json(raw: str) -> dict:
     text = raw.strip()
@@ -88,7 +189,13 @@ def _extract_json(raw: str) -> dict:
     if start != -1 and end != -1:
         text = text[start : end + 1]
     try:
-        return json.loads(text)
+        return json.loads(text, strict=False)
+    except (TypeError, ValueError):
+        pass
+    # Common LLM JSON slip: a trailing comma before a closing bracket/brace.
+    repaired = re.sub(r",(\s*[}\]])", r"\1", text)
+    try:
+        return json.loads(repaired, strict=False)
     except (TypeError, ValueError):
         raise HTTPException(502, "Could not parse the AI's response — try again.")
 
@@ -158,7 +265,7 @@ def list_learn_items(db: Session = Depends(get_db)):
 
 @router.post("", response_model=schemas.LearnItemOut)
 def create_learn_item(item: schemas.LearnItemCreate, db: Session = Depends(get_db)):
-    db_item = models.LearnItem(title=item.title, source_text=item.source_text)
+    db_item = models.LearnItem(title=item.title, source_text=item.source_text, mode=item.mode, topic=item.topic)
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
@@ -189,6 +296,8 @@ def update_learn_item(item_id: int, update: schemas.LearnItemUpdate, db: Session
         if updates["quiz"] != item.quiz:
             item.checks = None
             item.checked_at = None
+    if "plan" in updates:
+        updates["plan"] = json.dumps(updates["plan"])
     for key, value in updates.items():
         setattr(item, key, value)
     db.commit()
@@ -210,6 +319,8 @@ def import_url(item_id: int, body: schemas.LearnImportUrl, db: Session = Depends
     item = db.get(models.LearnItem, item_id)
     if not item:
         raise HTTPException(404, "Learn item not found")
+    if item.mode != "reading":
+        raise HTTPException(400, "Import URL is only available for reading comprehension items.")
     title, text = _fetch_url_text(body.url.strip())
     item.source_text = text
     if not item.title or item.title == "Untitled":
@@ -224,6 +335,8 @@ def generate_learn_item(item_id: int, db: Session = Depends(get_db)):
     item = db.get(models.LearnItem, item_id)
     if not item:
         raise HTTPException(404, "Learn item not found")
+    if item.mode != "reading":
+        raise HTTPException(400, "Generate is only available for reading comprehension items.")
     if not item.source_text.strip():
         raise HTTPException(400, "Add some text first.")
 
@@ -249,6 +362,8 @@ def check_learn_item(item_id: int, db: Session = Depends(get_db)):
     item = db.get(models.LearnItem, item_id)
     if not item:
         raise HTTPException(404, "Learn item not found")
+    if item.mode != "reading":
+        raise HTTPException(400, "Check accuracy is only available for reading comprehension items.")
     if not item.source_text.strip():
         raise HTTPException(400, "Add some text first.")
     chunks = json.loads(item.chunks) if item.chunks else []
@@ -271,6 +386,175 @@ def check_learn_item(item_id: int, db: Session = Depends(get_db)):
 
     item.checks = json.dumps(data)
     item.checked_at = datetime.now()
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def _sanitize_mermaid_label(text: str) -> str:
+    return " ".join((text or "").replace("(", "").replace(")", "").split())
+
+
+def _render_course_mermaid(topic: str, plan: list) -> str:
+    lines = ["mindmap", f"  root(({_sanitize_mermaid_label(topic) or 'Course'}))"]
+    for section in plan:
+        lines.append(f"    {_sanitize_mermaid_label(section.get('title', ''))}")
+        for lesson in section.get("lessons", []):
+            lines.append(f"      {_sanitize_mermaid_label(lesson.get('title', ''))}")
+    return "\n".join(lines)
+
+
+@router.post("/{item_id}/build-plan", response_model=schemas.LearnItemOut)
+def build_plan(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(models.LearnItem, item_id)
+    if not item:
+        raise HTTPException(404, "Learn item not found")
+    if item.mode != "topic":
+        raise HTTPException(400, "Build plan is only available for custom topic items.")
+    if not (item.topic or "").strip():
+        raise HTTPException(400, "Add a topic first.")
+
+    prompt = PLAN_INSTRUCTIONS + item.topic
+    raw = call_ai(prompt, db)
+    data = _extract_json(raw)
+
+    if data.get("title"):
+        item.title = data["title"]
+    sections = [
+        {
+            "title": section.get("title", ""),
+            "description": section.get("description", ""),
+            "teach_back_text": None,
+            "teach_back_feedback": None,
+            "lessons": [
+                {
+                    "title": lesson.get("title", ""),
+                    "description": lesson.get("description", ""),
+                    "content": None,
+                    "quiz": [],
+                    "completed": False,
+                }
+                for lesson in section.get("lessons", [])
+            ],
+        }
+        for section in data.get("sections", [])
+    ]
+    item.plan = json.dumps(sections)
+    item.mermaid = _render_course_mermaid(item.topic, sections)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/{item_id}/generate-lesson", response_model=schemas.LearnItemOut)
+def generate_lesson(item_id: int, body: schemas.LearnGenerateLesson, db: Session = Depends(get_db)):
+    item = db.get(models.LearnItem, item_id)
+    if not item:
+        raise HTTPException(404, "Learn item not found")
+    if item.mode != "topic":
+        raise HTTPException(400, "Generate lesson is only available for custom topic items.")
+    plan = json.loads(item.plan) if item.plan else []
+    if not (0 <= body.section_index < len(plan)):
+        raise HTTPException(400, "Invalid section index.")
+    section = plan[body.section_index]
+    lessons = section.get("lessons", [])
+    if not (0 <= body.lesson_index < len(lessons)):
+        raise HTTPException(400, "Invalid lesson index.")
+
+    section_payload = {"title": section.get("title", ""), "description": section.get("description", "")}
+    this_lesson = lessons[body.lesson_index]
+
+    prompt = (
+        LESSON_INSTRUCTIONS.replace("__TOPIC__", item.topic or "")
+        .replace("__SECTION_JSON__", json.dumps(section_payload, indent=2))
+        .replace(
+            "__THIS_LESSON_JSON__",
+            json.dumps({"title": this_lesson.get("title", ""), "description": this_lesson.get("description", "")}, indent=2),
+        )
+    )
+    raw = call_ai(prompt, db)
+    data = _extract_json(raw)
+
+    lessons[body.lesson_index]["content"] = data.get("content", "")
+    lessons[body.lesson_index]["quiz"] = data.get("quiz", [])
+    item.plan = json.dumps(plan)
+    item.mermaid = _render_course_mermaid(item.topic, plan)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/{item_id}/add-sections", response_model=schemas.LearnItemOut)
+def add_sections(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(models.LearnItem, item_id)
+    if not item:
+        raise HTTPException(404, "Learn item not found")
+    if item.mode != "topic":
+        raise HTTPException(400, "Add more sections is only available for custom topic items.")
+    plan = json.loads(item.plan) if item.plan else []
+    if not plan:
+        raise HTTPException(400, "Build a plan first.")
+
+    section_list_payload = [{"title": s.get("title", ""), "description": s.get("description", "")} for s in plan]
+    prompt = MORE_SECTIONS_INSTRUCTIONS.replace("__TOPIC__", item.topic or "").replace(
+        "__SECTION_LIST_JSON__", json.dumps(section_list_payload, indent=2)
+    )
+    raw = call_ai(prompt, db)
+    data = _extract_json(raw)
+
+    new_sections = [
+        {
+            "title": section.get("title", ""),
+            "description": section.get("description", ""),
+            "teach_back_text": None,
+            "teach_back_feedback": None,
+            "lessons": [
+                {
+                    "title": lesson.get("title", ""),
+                    "description": lesson.get("description", ""),
+                    "content": None,
+                    "quiz": [],
+                    "completed": False,
+                }
+                for lesson in section.get("lessons", [])
+            ],
+        }
+        for section in data.get("sections", [])
+    ]
+    plan.extend(new_sections)
+    item.plan = json.dumps(plan)
+    item.mermaid = _render_course_mermaid(item.topic, plan)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/{item_id}/explain-section", response_model=schemas.LearnItemOut)
+def explain_section(item_id: int, body: schemas.LearnExplainSection, db: Session = Depends(get_db)):
+    item = db.get(models.LearnItem, item_id)
+    if not item:
+        raise HTTPException(404, "Learn item not found")
+    if item.mode != "topic":
+        raise HTTPException(400, "Explain section is only available for custom topic items.")
+    plan = json.loads(item.plan) if item.plan else []
+    if not (0 <= body.section_index < len(plan)):
+        raise HTTPException(400, "Invalid section index.")
+    section = plan[body.section_index]
+    generated_content = [l["content"] for l in section.get("lessons", []) if l.get("content")]
+    if not generated_content:
+        raise HTTPException(400, "Generate at least one lesson in this section first.")
+    if not body.explanation.strip():
+        raise HTTPException(400, "Write an explanation first.")
+
+    prompt = EXPLAIN_SECTION_INSTRUCTIONS.replace("__SECTION_CONTENT__", "\n\n".join(generated_content)).replace(
+        "__EXPLANATION__", body.explanation
+    )
+    raw = call_ai(prompt, db)
+    data = _extract_json(raw)
+
+    plan[body.section_index]["teach_back_text"] = body.explanation
+    plan[body.section_index]["teach_back_feedback"] = data.get("feedback", "")
+    item.plan = json.dumps(plan)
     db.commit()
     db.refresh(item)
     return item

@@ -170,7 +170,8 @@ class LearnItemBase(BaseModel):
 
 
 class LearnItemCreate(LearnItemBase):
-    pass
+    mode: Literal["reading", "topic"] = "reading"
+    topic: Optional[str] = None
 
 
 class LearnItemUpdate(BaseModel):
@@ -180,6 +181,9 @@ class LearnItemUpdate(BaseModel):
     chunks: Optional[list[dict]] = None
     mermaid: Optional[str] = None
     quiz: Optional[list[dict]] = None
+    mode: Optional[Literal["reading", "topic"]] = None
+    topic: Optional[str] = None
+    plan: Optional[list[dict]] = None
 
 
 class LearnItemOut(LearnItemBase):
@@ -192,9 +196,12 @@ class LearnItemOut(LearnItemBase):
     quiz: list[dict] = []
     checks: Optional[dict] = None
     checked_at: Optional[datetime] = None
+    mode: str = "reading"
+    topic: Optional[str] = None
+    plan: list[dict] = []
     updated_at: datetime
 
-    @field_validator("chunks", "quiz", mode="before")
+    @field_validator("chunks", "quiz", "plan", mode="before")
     @classmethod
     def _parse_json(cls, v):
         if not v:
@@ -211,6 +218,16 @@ class LearnItemOut(LearnItemBase):
 
 class LearnImportUrl(BaseModel):
     url: str
+
+
+class LearnGenerateLesson(BaseModel):
+    section_index: int
+    lesson_index: int
+
+
+class LearnExplainSection(BaseModel):
+    section_index: int
+    explanation: str
 
 
 class SettingsOut(BaseModel):
@@ -236,6 +253,22 @@ class SettingsOut(BaseModel):
     b2_status: Optional[str] = None
     b2_status_detail: Optional[str] = None
     b2_status_checked_at: Optional[datetime] = None
+    imap_host: Optional[str] = None
+    imap_port: int = 993
+    imap_username: Optional[str] = None
+    imap_folder: str = "INBOX"
+    imap_password_set: bool = False
+    imap_status: Optional[str] = None
+    imap_status_detail: Optional[str] = None
+    imap_status_checked_at: Optional[datetime] = None
+    graph_client_id: Optional[str] = None
+    graph_tenant_id: Optional[str] = None
+    graph_folder: str = "inbox"
+    graph_account: Optional[str] = None
+    graph_status: Optional[str] = None
+    graph_status_detail: Optional[str] = None
+    graph_status_checked_at: Optional[datetime] = None
+    graph_configured: bool = False
 
 
 class SettingsUpdate(BaseModel):
@@ -250,6 +283,14 @@ class SettingsUpdate(BaseModel):
     b2_key_id: Optional[str] = None
     b2_application_key: Optional[str] = None
     b2_bucket_name: Optional[str] = None
+    imap_host: Optional[str] = None
+    imap_port: Optional[int] = None
+    imap_username: Optional[str] = None
+    imap_password: Optional[str] = None
+    imap_folder: Optional[str] = None
+    graph_client_id: Optional[str] = None
+    graph_tenant_id: Optional[str] = None
+    graph_folder: Optional[str] = None
 
 
 class ClaudeTestRequest(BaseModel):
@@ -260,6 +301,19 @@ class B2TestRequest(BaseModel):
     key_id: Optional[str] = None
     application_key: Optional[str] = None
     bucket_name: Optional[str] = None
+
+
+class ImapTestRequest(BaseModel):
+    host: Optional[str] = None
+    port: Optional[int] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    folder: Optional[str] = None
+
+
+class GraphDeviceCodeStartRequest(BaseModel):
+    client_id: Optional[str] = None
+    tenant_id: Optional[str] = None
 
 
 class AgentBase(BaseModel):

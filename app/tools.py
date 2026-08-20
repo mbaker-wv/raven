@@ -1,8 +1,13 @@
+from datetime import datetime, timedelta
+
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from . import schemas
+from . import graph_client, imap_client, models, schemas
 from .routers.entries import create_entry
 from .routers.tasks import create_task, update_task
+
+GRAPH_TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
 
 SKILLS = {
     "create_task": {
@@ -49,6 +54,21 @@ SKILLS = {
             "required": ["content"],
         },
     },
+    "search_emails": {
+        "name": "search_emails",
+        "label": "Search email (read-only)",
+        "description": "Search the connected mailbox and read matching messages (subject, sender, date, body snippet). Read-only — never sends or modifies email.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sender": {"type": "string", "description": "Only messages from this address/name (optional)"},
+                "subject_contains": {"type": "string", "description": "Only messages whose subject contains this text (optional)"},
+                "since_days": {"type": "integer", "description": "Only messages from the last N days (optional)"},
+                "limit": {"type": "integer", "description": "Max messages to return, default 10, max 25 (optional)"},
+            },
+            "required": [],
+        },
+    },
 }
 
 
@@ -90,10 +110,57 @@ def _handle_log_entry(db: Session, **args) -> str:
     return f"Logged {entry.entry_type} entry #{entry.id}."
 
 
+def _get_graph_access_token(db: Session, settings: models.Settings) -> str:
+    if settings.graph_token_expires_at and settings.graph_token_expires_at - GRAPH_TOKEN_REFRESH_BUFFER > datetime.now():
+        return settings.graph_access_token
+    token = graph_client.refresh_access_token(settings.graph_client_id, settings.graph_tenant_id, settings.graph_refresh_token)
+    settings.graph_access_token = token["access_token"]
+    settings.graph_refresh_token = token.get("refresh_token", settings.graph_refresh_token)
+    settings.graph_token_expires_at = datetime.now() + timedelta(seconds=token.get("expires_in", 3600))
+    db.commit()
+    return settings.graph_access_token
+
+
+def _handle_search_emails(db: Session, **args) -> str:
+    settings = db.query(models.Settings).first()
+    limit = args.get("limit") or 10
+
+    if settings and settings.graph_configured:
+        access_token = _get_graph_access_token(db, settings)
+        messages = graph_client.search_messages(
+            access_token,
+            settings.graph_folder,
+            sender=args.get("sender"),
+            subject_contains=args.get("subject_contains"),
+            since_days=args.get("since_days"),
+            limit=limit,
+        )
+    elif settings and settings.imap_configured:
+        messages = imap_client.search_emails(
+            settings.imap_host,
+            settings.imap_port,
+            settings.imap_username,
+            settings.imap_password,
+            settings.imap_folder,
+            sender=args.get("sender"),
+            subject_contains=args.get("subject_contains"),
+            since_days=args.get("since_days"),
+            limit=limit,
+        )
+    else:
+        raise HTTPException(400, "Email isn't configured — connect a mailbox in Admin first.")
+
+    if not messages:
+        return "No matching emails found."
+    lines = [f'{m["date"]} — {m["from"]} — "{m["subject"]}"\n{m["snippet"]}' for m in messages]
+    return "\n\n".join(lines)
+
+
 _HANDLERS = {
     "create_task": _handle_create_task,
     "complete_task": _handle_complete_task,
     "log_entry": _handle_log_entry,
+    "search_emails": _handle_search_emails,
 }
 
 

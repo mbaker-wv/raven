@@ -40,12 +40,18 @@ let items = [];
 let currentItem = null;
 let saveTimer = null;
 let generating = false;
+let generatingLesson = false;
+let addingSections = false;
+let speaking = false;
 let renderCounter = 0;
 let quizEditMode = false;
 let mapEditMode = false;
 let lastSavedSnapshot = null;
 let checksStale = false;
 let checking = false;
+let currentSectionIndex = null;
+let currentLessonIndex = null;
+let explainingSection = false;
 
 const itemsRow = document.getElementById("learn-items");
 const titleInput = document.getElementById("learn-title-input");
@@ -69,6 +75,16 @@ const quizList = document.getElementById("learn-quiz-list");
 const quizEditBtn = document.getElementById("learn-quiz-edit-btn");
 const checkStatus = document.getElementById("learn-check-status");
 const checkBtn = document.getElementById("learn-check-btn");
+const checkBar = document.getElementById("learn-check-bar");
+const modeToggle = document.getElementById("learn-mode-toggle");
+const readingInputs = document.getElementById("learn-reading-inputs");
+const topicInputs = document.getElementById("learn-topic-inputs");
+const topicInput = document.getElementById("learn-topic-input");
+const buildPlanBtn = document.getElementById("learn-build-plan-btn");
+const readingTabs = document.getElementById("learn-reading-tabs");
+const topicTabs = document.getElementById("learn-topic-tabs");
+const planList = document.getElementById("learn-plan-list");
+const lessonBody = document.getElementById("learn-lesson-body");
 
 function setError(msg) {
   errorEl.textContent = msg || "";
@@ -79,7 +95,21 @@ function setSaveStatus(text) {
 }
 
 function hasOutput() {
-  return !!(currentItem && (currentItem.chunks?.length || currentItem.mermaid || currentItem.quiz?.length));
+  if (!currentItem) return false;
+  if (currentItem.mode === "topic") return !!currentItem.plan?.length;
+  return !!(currentItem.chunks?.length || currentItem.mermaid || currentItem.quiz?.length);
+}
+
+function isEmptyItem(item) {
+  if (!item) return true;
+  return (
+    !(item.source_text || "").trim() &&
+    !(item.topic || "").trim() &&
+    !item.chunks?.length &&
+    !item.mermaid &&
+    !item.quiz?.length &&
+    !item.plan?.length
+  );
 }
 
 function updateCheckBar() {
@@ -173,13 +203,19 @@ async function deleteCurrentItem() {
 
 function renderCurrentItem() {
   setError("");
+  stopSpeaking();
   quizEditMode = false;
   mapEditMode = false;
   checksStale = false;
+  currentSectionIndex = null;
+  currentLessonIndex = null;
   outputPanel.classList.remove("checks-stale");
   titleInput.value = currentItem.title || "";
   sourceText.value = currentItem.source_text || "";
+  topicInput.value = currentItem.topic || "";
   lastSavedSnapshot = snapshotOf(currentItem);
+  renderSourcePanel();
+  ensureValidActiveTab();
   renderOutput();
 }
 
@@ -191,8 +227,52 @@ function snapshotOf(item) {
     chunks: item.chunks || [],
     mermaid: item.mermaid || null,
     quiz: item.quiz || [],
+    mode: item.mode || "reading",
+    topic: item.topic || null,
+    plan: item.plan || [],
   });
 }
+
+function renderSourcePanel() {
+  const mode = currentItem?.mode || "reading";
+  const empty = isEmptyItem(currentItem);
+  modeToggle.style.display = empty ? "" : "none";
+  modeToggle.querySelectorAll("button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+  readingInputs.style.display = mode === "topic" ? "none" : "";
+  topicInputs.style.display = mode === "topic" ? "" : "none";
+  readingTabs.style.display = mode === "topic" ? "none" : "";
+  topicTabs.style.display = mode === "topic" ? "" : "none";
+  checkBar.style.display = mode === "topic" ? "none" : "";
+  summaryEl.style.display = mode === "topic" ? "none" : "";
+}
+
+function activateTab(tabName) {
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === tabName));
+  document.querySelectorAll(".learn-tab-body").forEach((body) => body.classList.add("hidden"));
+  document.getElementById(`learn-tab-${tabName}`)?.classList.remove("hidden");
+}
+
+function ensureValidActiveTab() {
+  const mode = currentItem?.mode || "reading";
+  const validTabs = mode === "topic" ? ["plan", "lesson", "map"] : ["outline", "map", "quiz"];
+  const activeBtn = document.querySelector(".tab-btn.active");
+  if (!activeBtn || !validTabs.includes(activeBtn.dataset.tab)) {
+    activateTab(validTabs[0]);
+  }
+}
+
+modeToggle.querySelectorAll("button").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    if (!currentItem || currentItem.mode === btn.dataset.mode) return;
+    currentItem.mode = btn.dataset.mode;
+    renderSourcePanel();
+    ensureValidActiveTab();
+    await renderOutput();
+    await flushSave();
+  });
+});
 
 function scheduleSave() {
   setSaveStatus("Saving…");
@@ -205,6 +285,7 @@ async function flushSave() {
   if (!currentItem) return;
   currentItem.title = titleInput.value.trim() || "Untitled";
   currentItem.source_text = sourceText.value;
+  currentItem.topic = topicInput.value;
   const snapshot = snapshotOf(currentItem);
   if (snapshot === lastSavedSnapshot) {
     setSaveStatus("");
@@ -220,6 +301,9 @@ async function flushSave() {
         chunks: currentItem.chunks || [],
         mermaid: currentItem.mermaid ?? null,
         quiz: currentItem.quiz || [],
+        mode: currentItem.mode || "reading",
+        topic: currentItem.topic ?? null,
+        plan: currentItem.plan || [],
       }),
     });
     Object.assign(currentItem, updated);
@@ -236,6 +320,7 @@ async function flushSave() {
 
 titleInput.addEventListener("input", scheduleSave);
 sourceText.addEventListener("input", scheduleSave);
+topicInput.addEventListener("input", scheduleSave);
 window.addEventListener("beforeunload", flushSave);
 
 importUrlBtn.addEventListener("click", async () => {
@@ -291,7 +376,7 @@ async function loadNoteTabsIntoSelect() {
 }
 
 generateBtn.addEventListener("click", async () => {
-  if (!currentItem || generating) return;
+  if (!currentItem || generating || currentItem.mode !== "reading") return;
   if (hasOutput() && !confirm("This will replace the current outline, map, and quiz. Continue?")) return;
   await flushSave();
   if (!sourceText.value.trim()) {
@@ -326,6 +411,14 @@ generateBtn.addEventListener("click", async () => {
 
 async function renderOutput() {
   outputPanel.style.display = hasOutput() ? "" : "none";
+  if (currentItem?.mode === "topic") {
+    buildPlanBtn.textContent = hasOutput() ? "Rebuild plan" : "Build plan";
+    if (!hasOutput()) return;
+    renderPlan();
+    renderLesson();
+    await renderMap();
+    return;
+  }
   generateBtn.textContent = hasOutput() ? "Regenerate" : "Generate";
   if (!hasOutput()) return;
 
@@ -336,8 +429,360 @@ async function renderOutput() {
   await renderMap();
 }
 
+buildPlanBtn.addEventListener("click", async () => {
+  if (!currentItem || generating || currentItem.mode !== "topic") return;
+  if (hasOutput() && !confirm("This will replace the current plan. Any lessons you've already generated will be lost. Continue?")) return;
+  await flushSave();
+  if (!topicInput.value.trim()) {
+    setError("Add a topic first.");
+    return;
+  }
+  generating = true;
+  setError("");
+  buildPlanBtn.disabled = true;
+  buildPlanBtn.textContent = "Building…";
+  try {
+    const updated = await api(`/learn/${currentItem.id}/build-plan`, { method: "POST" });
+    Object.assign(currentItem, updated);
+    lastSavedSnapshot = snapshotOf(currentItem);
+    const idx = items.findIndex((i) => i.id === currentItem.id);
+    if (idx !== -1) items[idx] = currentItem;
+    titleInput.value = currentItem.title || "";
+    currentSectionIndex = null;
+    currentLessonIndex = null;
+    renderItemsRow();
+    renderSourcePanel();
+    ensureValidActiveTab();
+    await renderOutput();
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    generating = false;
+    buildPlanBtn.disabled = false;
+    buildPlanBtn.textContent = hasOutput() ? "Rebuild plan" : "Build plan";
+  }
+});
+
+/* ---------------- Plan + Lesson (custom topic mode) ---------------- */
+
+function renderPlan() {
+  planList.innerHTML = "";
+  const plan = currentItem.plan || [];
+  if (!plan.length) {
+    planList.innerHTML = '<p class="learn-empty">No plan yet.</p>';
+    return;
+  }
+  plan.forEach((section, sIdx) => {
+    const lessons = section.lessons || [];
+    const doneCount = lessons.filter((l) => l.completed).length;
+    const allGenerated = lessons.length > 0 && lessons.every((l) => l.content);
+
+    const card = document.createElement("div");
+    card.className = "learn-chunk";
+
+    const headerRow = document.createElement("div");
+    headerRow.className = "learn-plan-row";
+    const sectionTitle = document.createElement("span");
+    sectionTitle.className = "learn-plan-title";
+    sectionTitle.textContent = `${sIdx + 1}. ${section.title || ""}`;
+    const progressBadge = document.createElement("span");
+    progressBadge.className = "learn-check-badge " + (doneCount === lessons.length && lessons.length ? "generated" : "not-started");
+    progressBadge.textContent = `${doneCount}/${lessons.length} done`;
+    headerRow.appendChild(sectionTitle);
+    headerRow.appendChild(progressBadge);
+    card.appendChild(headerRow);
+
+    const sectionDesc = document.createElement("p");
+    sectionDesc.textContent = section.description || "";
+    card.appendChild(sectionDesc);
+
+    const lessonsList = document.createElement("div");
+    lessonsList.style.marginLeft = "16px";
+    lessons.forEach((lesson, lIdx) => {
+      const row = document.createElement("div");
+      row.className = "learn-plan-row";
+      row.style.marginBottom = "6px";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = !!lesson.completed;
+      checkbox.addEventListener("change", () => {
+        currentItem.plan[sIdx].lessons[lIdx].completed = checkbox.checked;
+        scheduleSave();
+      });
+      const lessonTitle = document.createElement("span");
+      lessonTitle.className = "learn-plan-title";
+      lessonTitle.textContent = `${sIdx + 1}.${lIdx + 1} ${lesson.title || ""}`;
+      const statusBadge = document.createElement("span");
+      statusBadge.className = "learn-check-badge " + (lesson.content ? "generated" : "not-started");
+      statusBadge.textContent = lesson.content ? "Generated" : "Not started";
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "secondary";
+      openBtn.textContent = lesson.content ? "Open" : "Open & generate";
+      openBtn.addEventListener("click", () => {
+        currentSectionIndex = sIdx;
+        currentLessonIndex = lIdx;
+        activateTab("lesson");
+        renderLesson();
+      });
+      row.appendChild(checkbox);
+      row.appendChild(lessonTitle);
+      row.appendChild(statusBadge);
+      row.appendChild(openBtn);
+      lessonsList.appendChild(row);
+    });
+    card.appendChild(lessonsList);
+
+    if (allGenerated) {
+      renderSectionExplain(card, sIdx, section);
+    }
+
+    planList.appendChild(card);
+  });
+
+  const addSectionsBtn = document.createElement("button");
+  addSectionsBtn.type = "button";
+  addSectionsBtn.className = "secondary";
+  addSectionsBtn.disabled = addingSections;
+  addSectionsBtn.textContent = addingSections ? "Adding…" : "Add more sections";
+  addSectionsBtn.addEventListener("click", addMoreSections);
+  planList.appendChild(addSectionsBtn);
+}
+
+function renderSectionExplain(card, sectionIndex, section) {
+  const heading = document.createElement("h3");
+  heading.textContent = "Explain this section in your own words";
+  heading.style.marginTop = "16px";
+  card.appendChild(heading);
+
+  const sub = document.createElement("p");
+  sub.className = "sub";
+  sub.textContent = "Pretend you're teaching this to a friend or your spouse.";
+  card.appendChild(sub);
+
+  const input = document.createElement("textarea");
+  input.value = section.teach_back_text || "";
+  input.placeholder = "Explain this section as if you were teaching it to someone else...";
+  input.style.minHeight = "100px";
+  input.addEventListener("input", () => {
+    currentItem.plan[sectionIndex].teach_back_text = input.value;
+    scheduleSave();
+  });
+  card.appendChild(input);
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn-primary";
+  btn.style.marginTop = "8px";
+  btn.disabled = explainingSection;
+  btn.textContent = explainingSection ? "Getting feedback…" : "Get feedback";
+  btn.addEventListener("click", () => explainSection(sectionIndex));
+  card.appendChild(btn);
+
+  if (section.teach_back_feedback) {
+    const feedback = document.createElement("div");
+    feedback.className = "learn-check-note";
+    feedback.style.marginTop = "10px";
+    feedback.textContent = section.teach_back_feedback;
+    card.appendChild(feedback);
+  }
+}
+
+async function explainSection(sectionIndex) {
+  if (!currentItem || explainingSection) return;
+  const explanation = (currentItem.plan[sectionIndex].teach_back_text || "").trim();
+  if (!explanation) {
+    setError("Write an explanation first.");
+    return;
+  }
+  explainingSection = true;
+  setError("");
+  renderPlan();
+  try {
+    const updated = await api(`/learn/${currentItem.id}/explain-section`, {
+      method: "POST",
+      body: JSON.stringify({ section_index: sectionIndex, explanation }),
+    });
+    Object.assign(currentItem, updated);
+    lastSavedSnapshot = snapshotOf(currentItem);
+    const listIdx = items.findIndex((i) => i.id === currentItem.id);
+    if (listIdx !== -1) items[listIdx] = currentItem;
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    explainingSection = false;
+    renderPlan();
+  }
+}
+
+async function addMoreSections() {
+  if (!currentItem || addingSections) return;
+  addingSections = true;
+  setError("");
+  renderPlan();
+  try {
+    const updated = await api(`/learn/${currentItem.id}/add-sections`, { method: "POST" });
+    Object.assign(currentItem, updated);
+    lastSavedSnapshot = snapshotOf(currentItem);
+    const idx = items.findIndex((i) => i.id === currentItem.id);
+    if (idx !== -1) items[idx] = currentItem;
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    addingSections = false;
+    renderPlan();
+  }
+}
+
+function stopSpeaking() {
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  speaking = false;
+}
+
+function toggleReadAloud(text, btn) {
+  if (!("speechSynthesis" in window)) return;
+  if (speaking) {
+    stopSpeaking();
+    btn.textContent = "Read aloud";
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.onend = () => {
+    speaking = false;
+    btn.textContent = "Read aloud";
+  };
+  utterance.onerror = () => {
+    speaking = false;
+    btn.textContent = "Read aloud";
+  };
+  speaking = true;
+  btn.textContent = "Stop reading";
+  window.speechSynthesis.speak(utterance);
+}
+
+function renderLesson() {
+  stopSpeaking();
+  lessonBody.innerHTML = "";
+  const plan = currentItem.plan || [];
+  const section = currentSectionIndex !== null ? plan[currentSectionIndex] : null;
+  const lesson = section && currentLessonIndex !== null ? (section.lessons || [])[currentLessonIndex] : null;
+  if (!lesson) {
+    lessonBody.innerHTML = '<p class="learn-empty">Open a lesson from the Plan tab.</p>';
+    return;
+  }
+
+  const heading = document.createElement("h3");
+  heading.textContent = `${currentSectionIndex + 1}.${currentLessonIndex + 1} ${lesson.title || ""}`;
+  lessonBody.appendChild(heading);
+  const desc = document.createElement("p");
+  desc.className = "sub";
+  desc.textContent = lesson.description || "";
+  lessonBody.appendChild(desc);
+
+  if (!lesson.content) {
+    const genBtn = document.createElement("button");
+    genBtn.type = "button";
+    genBtn.className = "btn-primary";
+    genBtn.disabled = generatingLesson;
+    genBtn.textContent = generatingLesson ? "Generating…" : "Generate lesson";
+    genBtn.addEventListener("click", () => generateLesson(currentSectionIndex, currentLessonIndex));
+    lessonBody.appendChild(genBtn);
+    return;
+  }
+
+  if ("speechSynthesis" in window) {
+    const readBtn = document.createElement("button");
+    readBtn.type = "button";
+    readBtn.className = "secondary";
+    readBtn.textContent = "Read aloud";
+    readBtn.addEventListener("click", () => toggleReadAloud(lesson.content, readBtn));
+    lessonBody.appendChild(readBtn);
+  }
+
+  const content = document.createElement("div");
+  (lesson.content || "").split(/\n\n+/).forEach((para) => {
+    const p = document.createElement("p");
+    p.textContent = para;
+    content.appendChild(p);
+  });
+  lessonBody.appendChild(content);
+
+  const regenBtn = document.createElement("button");
+  regenBtn.type = "button";
+  regenBtn.className = "secondary";
+  regenBtn.disabled = generatingLesson;
+  regenBtn.textContent = generatingLesson ? "Generating…" : "Regenerate lesson";
+  regenBtn.addEventListener("click", () => {
+    if (!confirm("This will replace this lesson's content and quiz. Continue?")) return;
+    generateLesson(currentSectionIndex, currentLessonIndex);
+  });
+  lessonBody.appendChild(regenBtn);
+
+  const quizHeading = document.createElement("h3");
+  quizHeading.textContent = "Quiz";
+  quizHeading.style.marginTop = "20px";
+  lessonBody.appendChild(quizHeading);
+
+  renderLessonQuiz(lesson.quiz || []);
+}
+
+function renderLessonQuiz(quiz) {
+  const container = document.createElement("div");
+  if (!quiz.length) {
+    container.innerHTML = '<p class="learn-empty">No quiz yet.</p>';
+  } else {
+    quiz.forEach((q, idx) => {
+      const item = document.createElement("div");
+      item.className = "learn-quiz-item";
+      const question = document.createElement("div");
+      question.className = "learn-quiz-question";
+      question.textContent = `${idx + 1}. ${q.question || ""}`;
+      item.appendChild(question);
+      const revealBtn = document.createElement("button");
+      revealBtn.type = "button";
+      revealBtn.className = "secondary";
+      revealBtn.textContent = "Reveal answer";
+      const answer = document.createElement("div");
+      answer.className = "learn-quiz-answer hidden";
+      answer.textContent = q.answer || "";
+      revealBtn.addEventListener("click", () => {
+        answer.classList.toggle("hidden");
+        revealBtn.textContent = answer.classList.contains("hidden") ? "Reveal answer" : "Hide answer";
+      });
+      item.appendChild(revealBtn);
+      item.appendChild(answer);
+      container.appendChild(item);
+    });
+  }
+  lessonBody.appendChild(container);
+}
+
+async function generateLesson(sectionIdx, lessonIdx) {
+  if (!currentItem || generatingLesson) return;
+  generatingLesson = true;
+  setError("");
+  renderLesson();
+  try {
+    const updated = await api(`/learn/${currentItem.id}/generate-lesson`, {
+      method: "POST",
+      body: JSON.stringify({ section_index: sectionIdx, lesson_index: lessonIdx }),
+    });
+    Object.assign(currentItem, updated);
+    lastSavedSnapshot = snapshotOf(currentItem);
+    const listIdx = items.findIndex((i) => i.id === currentItem.id);
+    if (listIdx !== -1) items[listIdx] = currentItem;
+    renderPlan();
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    generatingLesson = false;
+    renderLesson();
+  }
+}
+
 checkBtn.addEventListener("click", async () => {
-  if (!currentItem || checking) return;
+  if (!currentItem || checking || currentItem.mode !== "reading") return;
   await flushSave();
   checking = true;
   setError("");
@@ -617,12 +1062,7 @@ mapApplyBtn.addEventListener("click", async () => {
 });
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    document.querySelectorAll(".learn-tab-body").forEach((body) => body.classList.add("hidden"));
-    document.getElementById(`learn-tab-${btn.dataset.tab}`).classList.remove("hidden");
-  });
+  btn.addEventListener("click", () => activateTab(btn.dataset.tab));
 });
 
 function openHelpPanel() {

@@ -40,7 +40,7 @@ def _post(api_key: str, payload: dict, timeout: int) -> dict:
 def call_claude(prompt: str, api_key: str) -> str:
     data = _post(
         api_key,
-        {"model": CLAUDE_MODEL, "max_tokens": 4096, "messages": [{"role": "user", "content": prompt}]},
+        {"model": CLAUDE_MODEL, "max_tokens": 8192, "messages": [{"role": "user", "content": prompt}]},
         timeout=180,
     )
     return "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
@@ -59,7 +59,7 @@ def call_claude_with_tools(
     for _ in range(MAX_TOOL_ITERATIONS):
         data = _post(
             api_key,
-            {"model": CLAUDE_MODEL, "max_tokens": 4096, "messages": messages, "tools": tools},
+            {"model": CLAUDE_MODEL, "max_tokens": 8192, "messages": messages, "tools": tools},
             timeout=180,
         )
         content = data.get("content", [])

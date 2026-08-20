@@ -3,15 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <title>Raven — Agents</title>
-<link rel="stylesheet" href="/static/style.css?v=38">
+<link rel="stylesheet" href="/static/style.css?v=43">
 </head>
 <body>
+<header class="app-header">
+  <div class="brand"><span class="brand-label">Raven</span></div>
+</header>
 <div class="app-shell">
   <aside class="sidebar" id="app-sidebar">
     <div class="sidebar-header">
-      <div class="brand"><span class="brand-label">Raven</span></div>
-      <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Collapse sidebar">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Expand sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg>
       </button>
     </div>
     <nav>
@@ -120,6 +122,26 @@
                 <div class="skill-used-by" id="skill-used-by-log_entry">Loading…</div>
               </div>
             </details>
+
+            <details class="skill-row">
+              <summary>
+                <span class="skill-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5l5.5 4 5.5-4"/></svg></span>
+                <div class="skill-main">
+                  <div class="skill-name-row">
+                    <span class="skill-name">Search email (read-only)</span>
+                    <span class="provider-chip claude">Claude only</span>
+                  </div>
+                  <div class="skill-desc">Reads matching messages from a connected mailbox — subject, sender, date, body snippet. Never sends or modifies email.</div>
+                </div>
+                <div class="skill-meta">
+                  <span class="skill-status ready">Built-in</span>
+                  <span class="skill-chevron">›</span>
+                </div>
+              </summary>
+              <div class="skill-body">
+                <div class="skill-used-by" id="skill-used-by-search_emails">Loading…</div>
+              </div>
+            </details>
           </div>
 
           <div class="skills-cta">
@@ -194,6 +216,7 @@
         <label class="skill-check"><input type="checkbox" class="agent-skill" value="create_task"> Create a task</label>
         <label class="skill-check"><input type="checkbox" class="agent-skill" value="complete_task"> Complete a task</label>
         <label class="skill-check"><input type="checkbox" class="agent-skill" value="log_entry"> Log an entry</label>
+        <label class="skill-check"><input type="checkbox" class="agent-skill" value="search_emails"> Search email (read-only)</label>
       </div>
       <div class="chain-preview" id="skills-ollama-hint">Skills only run for Claude-powered agents — pick Claude above to enable them.</div>
     </div>
@@ -348,7 +371,7 @@
   </div>
 </div>
 
-<script src="/static/status.js?v=3"></script>
+<script src="/static/status.js?v=4"></script>
 <script src="/static/markdown.js?v=2"></script>
 <script src="/static/agents.js?v=18"></script>
 </body>

@@ -46,7 +46,7 @@ def _parse_number(raw: str | None) -> float:
     if not raw:
         return 0.0
     try:
-        return float(raw.strip())
+        return float(raw.strip().replace(",", ""))
     except ValueError:
         return 0.0
 

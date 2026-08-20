@@ -78,6 +78,30 @@ function updateBackupsSummary() {
   sub.textContent = `${scheduleBit} · ${b2Bit}`;
 }
 
+function updateEmailSummary() {
+  const sub = document.getElementById("email-group-sub");
+  if (currentSettings.imap_status === "ok") {
+    sub.textContent = "IMAP connected";
+  } else if (currentSettings.imap_host) {
+    sub.textContent = "IMAP saved, not tested";
+  } else {
+    sub.textContent = "Not configured";
+  }
+}
+
+function updateGraphSummary() {
+  const sub = document.getElementById("graph-group-sub");
+  if (currentSettings.graph_status === "ok" && currentSettings.graph_account) {
+    sub.textContent = `Connected as ${currentSettings.graph_account}`;
+  } else if (currentSettings.graph_status === "ok") {
+    sub.textContent = "Connected";
+  } else if (currentSettings.graph_client_id) {
+    sub.textContent = "Not connected";
+  } else {
+    sub.textContent = "Not configured";
+  }
+}
+
 function updateUpdatesSummary(data) {
   const sub = document.getElementById("updates-group-sub");
   if (!data || data.error) {
@@ -126,6 +150,17 @@ async function loadSettings() {
   document.getElementById("b2-bucket-name").value = currentSettings.b2_bucket_name || "";
   renderBackupScheduleNote();
   renderB2Status();
+
+  document.getElementById("imap-host").value = currentSettings.imap_host || "";
+  document.getElementById("imap-port").value = currentSettings.imap_port || 993;
+  document.getElementById("imap-username").value = currentSettings.imap_username || "";
+  document.getElementById("imap-folder").value = currentSettings.imap_folder || "INBOX";
+  renderImapStatus();
+
+  document.getElementById("graph-client-id").value = currentSettings.graph_client_id || "";
+  document.getElementById("graph-tenant-id").value = currentSettings.graph_tenant_id || "";
+  document.getElementById("graph-folder").value = currentSettings.graph_folder || "inbox";
+  renderGraphStatus();
 }
 
 function renderBackupScheduleNote() {
@@ -163,6 +198,183 @@ function renderB2Status() {
     note.style.color = "var(--muted)";
   }
   updateBackupsSummary();
+}
+
+function renderImapStatus() {
+  const note = document.getElementById("imap-status-note");
+  const input = document.getElementById("imap-password");
+  input.placeholder = currentSettings.imap_password_set ? "•••• saved (enter a new password to replace)" : "Password";
+  const checked = currentSettings.imap_status_checked_at
+    ? new Date(currentSettings.imap_status_checked_at + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : null;
+  if (currentSettings.imap_status === "ok") {
+    note.textContent = checked ? `Connected (last checked ${checked})` : "Connected";
+    note.style.color = "var(--ok)";
+  } else if (currentSettings.imap_status === "error") {
+    note.textContent = `${currentSettings.imap_status_detail || "Connection failed"}${checked ? ` (last checked ${checked})` : ""}`;
+    note.style.color = "var(--danger)";
+  } else if (currentSettings.imap_host) {
+    note.textContent = "Saved, but not tested yet.";
+    note.style.color = "var(--muted)";
+  } else {
+    note.textContent = "Not configured.";
+    note.style.color = "var(--muted)";
+  }
+  updateEmailSummary();
+}
+
+async function saveImap() {
+  const imap_host = document.getElementById("imap-host").value.trim() || null;
+  const imap_port = parseInt(document.getElementById("imap-port").value, 10) || 993;
+  const imap_username = document.getElementById("imap-username").value.trim() || null;
+  const imap_password = document.getElementById("imap-password").value.trim();
+  const imap_folder = document.getElementById("imap-folder").value.trim() || "INBOX";
+  const body = { imap_host, imap_port, imap_username, imap_folder };
+  if (imap_password) body.imap_password = imap_password;
+  await api("/admin/settings", { method: "PUT", body: JSON.stringify(body) });
+  document.getElementById("imap-password").value = "";
+  Object.assign(currentSettings, { imap_host, imap_port, imap_username, imap_folder });
+  if (imap_password) currentSettings.imap_password_set = true;
+  currentSettings.imap_status = null;
+  currentSettings.imap_status_detail = null;
+  renderImapStatus();
+}
+
+async function testImapConnection() {
+  const host = document.getElementById("imap-host").value.trim();
+  const port = parseInt(document.getElementById("imap-port").value, 10) || 993;
+  const username = document.getElementById("imap-username").value.trim();
+  const password = document.getElementById("imap-password").value.trim();
+  const folder = document.getElementById("imap-folder").value.trim() || "INBOX";
+  const btn = document.getElementById("test-imap-btn");
+  const note = document.getElementById("imap-status-note");
+  btn.disabled = true;
+  note.textContent = "Testing…";
+  note.style.color = "var(--muted)";
+  try {
+    await api("/admin/imap/test", {
+      method: "POST",
+      body: JSON.stringify({
+        host: host || null,
+        port: port || null,
+        username: username || null,
+        password: password || null,
+        folder: folder || null,
+      }),
+    });
+    currentSettings = await api("/admin/settings");
+    renderImapStatus();
+  } catch (err) {
+    note.textContent = err.message;
+    note.style.color = "var(--danger)";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderGraphStatus() {
+  const note = document.getElementById("graph-status-note");
+  const disconnectBtn = document.getElementById("disconnect-graph-btn");
+  const checked = currentSettings.graph_status_checked_at
+    ? new Date(currentSettings.graph_status_checked_at + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : null;
+  if (currentSettings.graph_status === "ok") {
+    note.textContent = currentSettings.graph_account
+      ? `Connected as ${currentSettings.graph_account}${checked ? ` (last checked ${checked})` : ""}`
+      : "Connected";
+    note.style.color = "var(--ok)";
+    disconnectBtn.classList.remove("hidden");
+  } else if (currentSettings.graph_status === "error") {
+    note.textContent = `${currentSettings.graph_status_detail || "Connection failed"}${checked ? ` (last checked ${checked})` : ""}`;
+    note.style.color = "var(--danger)";
+    disconnectBtn.classList.add("hidden");
+  } else {
+    note.textContent = "Not connected.";
+    note.style.color = "var(--muted)";
+    disconnectBtn.classList.add("hidden");
+  }
+  updateGraphSummary();
+}
+
+async function saveGraph() {
+  const graph_client_id = document.getElementById("graph-client-id").value.trim() || null;
+  const graph_tenant_id = document.getElementById("graph-tenant-id").value.trim() || null;
+  const graph_folder = document.getElementById("graph-folder").value.trim() || "inbox";
+  await api("/admin/settings", { method: "PUT", body: JSON.stringify({ graph_client_id, graph_tenant_id, graph_folder }) });
+  Object.assign(currentSettings, { graph_client_id, graph_tenant_id, graph_folder });
+  renderGraphStatus();
+}
+
+let graphPollTimer = null;
+
+function stopGraphPolling() {
+  if (graphPollTimer) clearTimeout(graphPollTimer);
+  graphPollTimer = null;
+}
+
+async function connectGraph() {
+  stopGraphPolling();
+  const client_id = document.getElementById("graph-client-id").value.trim();
+  const tenant_id = document.getElementById("graph-tenant-id").value.trim();
+  const btn = document.getElementById("connect-graph-btn");
+  const box = document.getElementById("graph-device-code-box");
+  const note = document.getElementById("graph-status-note");
+  btn.disabled = true;
+  note.textContent = "";
+  try {
+    const flow = await api("/admin/graph/device-code", {
+      method: "POST",
+      body: JSON.stringify({ client_id: client_id || null, tenant_id: tenant_id || null }),
+    });
+    currentSettings.graph_client_id = client_id;
+    currentSettings.graph_tenant_id = tenant_id;
+
+    document.getElementById("graph-verification-link").textContent = flow.verification_uri;
+    document.getElementById("graph-verification-link").href = flow.verification_uri;
+    document.getElementById("graph-user-code").textContent = flow.user_code;
+    document.getElementById("graph-device-code-status").textContent = "Waiting for you to sign in…";
+    box.classList.remove("hidden");
+
+    const deadline = Date.now() + flow.expires_in * 1000;
+    const intervalMs = (flow.interval || 5) * 1000;
+
+    const poll = async () => {
+      if (Date.now() > deadline) {
+        document.getElementById("graph-device-code-status").textContent = "Code expired — click Connect to try again.";
+        btn.disabled = false;
+        return;
+      }
+      try {
+        const result = await api("/admin/graph/device-code/poll", { method: "POST" });
+        if (result.status === "connected") {
+          box.classList.add("hidden");
+          btn.disabled = false;
+          currentSettings = await api("/admin/settings");
+          renderGraphStatus();
+          return;
+        }
+        graphPollTimer = setTimeout(poll, intervalMs);
+      } catch (err) {
+        document.getElementById("graph-device-code-status").textContent = err.message;
+        btn.disabled = false;
+        currentSettings = await api("/admin/settings");
+        renderGraphStatus();
+      }
+    };
+    graphPollTimer = setTimeout(poll, intervalMs);
+  } catch (err) {
+    note.textContent = err.message;
+    note.style.color = "var(--danger)";
+    btn.disabled = false;
+  }
+}
+
+async function disconnectGraph() {
+  stopGraphPolling();
+  await api("/admin/graph/disconnect", { method: "POST" });
+  currentSettings = await api("/admin/settings");
+  document.getElementById("graph-device-code-box").classList.add("hidden");
+  renderGraphStatus();
 }
 
 async function saveBackupSchedule() {
@@ -623,6 +835,11 @@ document.getElementById("delete-all-backups-btn").addEventListener("click", dele
 document.getElementById("save-backup-schedule-btn").addEventListener("click", saveBackupSchedule);
 document.getElementById("save-b2-btn").addEventListener("click", saveB2);
 document.getElementById("test-b2-btn").addEventListener("click", testB2Connection);
+document.getElementById("save-imap-btn").addEventListener("click", saveImap);
+document.getElementById("test-imap-btn").addEventListener("click", testImapConnection);
+document.getElementById("save-graph-btn").addEventListener("click", saveGraph);
+document.getElementById("connect-graph-btn").addEventListener("click", connectGraph);
+document.getElementById("disconnect-graph-btn").addEventListener("click", disconnectGraph);
 document.getElementById("check-update-btn").addEventListener("click", checkForUpdate);
 document.getElementById("apply-update-btn").addEventListener("click", applyUpdate);
 document.getElementById("run-check-btn").addEventListener("click", runSecurityCheck);

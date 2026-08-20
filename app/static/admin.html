@@ -3,15 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <title>Raven — Admin</title>
-<link rel="stylesheet" href="/static/style.css?v=38">
+<link rel="stylesheet" href="/static/style.css?v=43">
 </head>
 <body>
+<header class="app-header">
+  <div class="brand"><span class="brand-label">Raven</span></div>
+</header>
 <div class="app-shell">
   <aside class="sidebar" id="app-sidebar">
     <div class="sidebar-header">
-      <div class="brand"><span class="brand-label">Raven</span></div>
-      <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Collapse sidebar">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      <button class="sidebar-toggle" id="sidebar-toggle" type="button" title="Expand sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg>
       </button>
     </div>
     <nav>
@@ -159,6 +161,76 @@
               <span id="backup-status" style="font-size: 12px;"></span>
             </div>
             <div id="backups-list"></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="admin-group" data-group-id="email">
+        <summary>
+          <div class="admin-group-heading">
+            <h2>Email (IMAP)</h2>
+            <span class="admin-group-sub" id="email-group-sub"></span>
+          </div>
+          <span class="admin-group-chevron">▸</span>
+        </summary>
+        <div class="admin-group-body">
+          <div class="admin-subsection">
+            <div class="admin-subsection-title">Mailbox connection</div>
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 10px;">
+              Connect a mailbox over IMAP so agents can read email as context (read-only — Raven never sends or modifies anything in this mailbox).
+            </div>
+            <div class="row" style="margin-bottom: 8px;">
+              <input type="text" id="imap-host" placeholder="IMAP host, e.g. imap.gmail.com" style="flex: 1;" autocomplete="off">
+              <input type="number" id="imap-port" placeholder="Port" value="993" style="width: 90px;">
+            </div>
+            <div class="row" style="margin-bottom: 8px;">
+              <input type="text" id="imap-username" placeholder="Username / email address" style="flex: 1;" autocomplete="off">
+              <input type="password" id="imap-password" placeholder="Password" style="flex: 1;" autocomplete="off">
+            </div>
+            <div class="row" style="margin-bottom: 8px;">
+              <input type="text" id="imap-folder" placeholder="Folder" value="INBOX" style="flex: 1;" autocomplete="off">
+            </div>
+            <div class="row" style="margin-bottom: 8px;">
+              <button id="save-imap-btn">Save</button>
+              <button class="secondary" id="test-imap-btn">Test Connection</button>
+              <span id="imap-status-note" style="font-size: 12px;"></span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="admin-group" data-group-id="graph">
+        <summary>
+          <div class="admin-group-heading">
+            <h2>Microsoft 365 (Email)</h2>
+            <span class="admin-group-sub" id="graph-group-sub"></span>
+          </div>
+          <span class="admin-group-chevron">▸</span>
+        </summary>
+        <div class="admin-group-body">
+          <div class="admin-subsection">
+            <div class="admin-subsection-title">Connect a mailbox</div>
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 10px;">
+              Uses Microsoft Graph (Mail.Read, read-only) via an Azure app registration you create yourself — Entra ID → App registrations → your app → Overview gives you the Client ID and Tenant ID below.
+            </div>
+            <div class="row" style="margin-bottom: 8px;">
+              <input type="text" id="graph-client-id" placeholder="Client ID" style="flex: 1;" autocomplete="off">
+              <input type="text" id="graph-tenant-id" placeholder="Tenant ID" style="flex: 1;" autocomplete="off">
+            </div>
+            <div class="row" style="margin-bottom: 8px;">
+              <input type="text" id="graph-folder" placeholder="Folder (inbox, sentitems, or a folder id)" value="inbox" style="flex: 1;" autocomplete="off">
+            </div>
+            <div class="row" style="margin-bottom: 8px;">
+              <button id="save-graph-btn">Save</button>
+              <button class="secondary" id="connect-graph-btn">Connect with Microsoft</button>
+              <button class="button-danger hidden" id="disconnect-graph-btn">Disconnect</button>
+              <span id="graph-status-note" style="font-size: 12px;"></span>
+            </div>
+            <div id="graph-device-code-box" class="hidden" style="margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px;">
+              <div style="font-size: 13px; margin-bottom: 6px;">Go to <a id="graph-verification-link" href="#" target="_blank" rel="noopener"></a> and enter this code:</div>
+              <div id="graph-user-code" style="font-size: 22px; font-weight: 700; letter-spacing: 2px;"></div>
+              <div id="graph-device-code-status" style="font-size: 12px; color: var(--muted); margin-top: 6px;"></div>
+            </div>
           </div>
         </div>
       </details>
@@ -329,7 +401,7 @@
   </div>
 </div>
 
-<script src="/static/status.js?v=3"></script>
+<script src="/static/status.js?v=4"></script>
 <script src="/static/admin.js?v=10"></script>
 </body>
 </html>

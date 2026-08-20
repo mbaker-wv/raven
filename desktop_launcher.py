@@ -91,7 +91,9 @@ def main() -> None:
     try:
         _wait_until_ready(f"{base_url}/api/version", server_proc, STARTUP_TIMEOUT_SECONDS)
         api = _Api()
-        api.window = webview.create_window("Raven", base_url, width=1280, height=860, min_size=(800, 600), js_api=api)
+        api.window = webview.create_window(
+            "Raven", base_url, width=1280, height=860, min_size=(800, 600), js_api=api, text_select=True
+        )
         webview.start()
     finally:
         if server_proc.poll() is None:

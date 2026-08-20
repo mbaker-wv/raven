@@ -166,7 +166,7 @@ function renderVulnReportTables(data) {
     html += '<div class="section-heading">Systems to prioritize</div>';
     html += _mdTable(
       ["System", "Critical", "Severe", "Total open", "Risk score"],
-      data.top_assets.map((a) => [a.label, a.critical_count, a.severe_count, a.finding_count, a.risk_score])
+      data.top_assets.map((a) => [a.label, a.critical_count, a.severe_count, a.finding_count, a.risk_score.toLocaleString()])
     );
   }
 
@@ -254,7 +254,7 @@ async function loadAgents() {
 
 // Built-in skills only ever change by editing tools.py, so there's no API for this list —
 // just keep these keys in sync with SKILLS in app/tools.py.
-const SKILL_KEYS = ["create_task", "complete_task", "log_entry"];
+const SKILL_KEYS = ["create_task", "complete_task", "log_entry", "search_emails"];
 
 function renderSkillUsage() {
   for (const key of SKILL_KEYS) {

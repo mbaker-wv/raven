@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from packaging.version import parse as parse_version
 from sqlalchemy.orm import Session
 
-from .. import b2_client, models, schemas
+from .. import b2_client, graph_client, imap_client, models, schemas
 from ..claude_client import CLAUDE_MODEL, test_connection as test_claude_connection
 from ..crypto import KEY_PATH
 from ..database import BASE_DIR, DATA_DIR, DATABASE_PATH, get_db
@@ -186,6 +186,102 @@ def test_b2(payload: schemas.B2TestRequest, db: Session = Depends(get_db)):
     settings.b2_status_checked_at = datetime.now()
     db.commit()
     return {"status": settings.b2_status, "detail": settings.b2_status_detail}
+
+
+@router.post("/imap/test")
+def test_imap(payload: schemas.ImapTestRequest, db: Session = Depends(get_db)):
+    settings = _get_or_create_settings(db)
+    host = payload.host or settings.imap_host
+    port = payload.port or settings.imap_port
+    username = payload.username or settings.imap_username
+    password = payload.password or settings.imap_password
+    folder = payload.folder or settings.imap_folder
+    try:
+        imap_client.test_connection(host, port, username, password, folder)
+    except HTTPException as exc:
+        settings.imap_status = "error"
+        settings.imap_status_detail = str(exc.detail)[:500]
+        settings.imap_status_checked_at = datetime.now()
+        db.commit()
+        raise
+    settings.imap_status = "ok"
+    settings.imap_status_detail = "Connected"
+    settings.imap_status_checked_at = datetime.now()
+    db.commit()
+    return {"status": settings.imap_status, "detail": settings.imap_status_detail}
+
+
+# In-process only — single-user local app, no session/auth layer to key this off of.
+_pending_graph_flow: dict | None = None
+
+
+@router.post("/graph/device-code")
+def start_graph_device_code(payload: schemas.GraphDeviceCodeStartRequest, db: Session = Depends(get_db)):
+    global _pending_graph_flow
+    settings = _get_or_create_settings(db)
+    client_id = payload.client_id or settings.graph_client_id
+    tenant_id = payload.tenant_id or settings.graph_tenant_id
+    flow = graph_client.start_device_flow(client_id, tenant_id)
+
+    settings.graph_client_id = client_id
+    settings.graph_tenant_id = tenant_id
+    db.commit()
+
+    _pending_graph_flow = {"client_id": client_id, "tenant_id": tenant_id, "device_code": flow["device_code"]}
+    return {
+        "user_code": flow["user_code"],
+        "verification_uri": flow.get("verification_uri") or flow.get("verification_uri_complete"),
+        "expires_in": flow["expires_in"],
+        "interval": flow.get("interval", 5),
+        "message": flow.get("message"),
+    }
+
+
+@router.post("/graph/device-code/poll")
+def poll_graph_device_code(db: Session = Depends(get_db)):
+    global _pending_graph_flow
+    if not _pending_graph_flow:
+        raise HTTPException(400, "No Microsoft sign-in in progress — click Connect first.")
+    settings = _get_or_create_settings(db)
+    try:
+        token = graph_client.poll_device_flow(
+            _pending_graph_flow["client_id"], _pending_graph_flow["tenant_id"], _pending_graph_flow["device_code"]
+        )
+    except HTTPException as exc:
+        _pending_graph_flow = None
+        settings.graph_status = "error"
+        settings.graph_status_detail = str(exc.detail)[:500]
+        settings.graph_status_checked_at = datetime.now()
+        db.commit()
+        raise
+
+    if token is None:
+        return {"status": "pending"}
+
+    _pending_graph_flow = None
+    settings.graph_refresh_token = token["refresh_token"]
+    settings.graph_access_token = token["access_token"]
+    settings.graph_token_expires_at = datetime.now() + timedelta(seconds=token.get("expires_in", 3600))
+    settings.graph_account = graph_client.decode_id_token_email(token.get("id_token")) or settings.graph_account
+    settings.graph_status = "ok"
+    settings.graph_status_detail = "Connected"
+    settings.graph_status_checked_at = datetime.now()
+    db.commit()
+    return {"status": "connected", "account": settings.graph_account}
+
+
+@router.post("/graph/disconnect")
+def disconnect_graph(db: Session = Depends(get_db)):
+    settings = _get_or_create_settings(db)
+    settings.graph_access_token = None
+    settings.graph_refresh_token = None
+    settings.graph_token_expires_at = None
+    settings.graph_account = None
+    settings.graph_status = None
+    settings.graph_status_detail = None
+    settings.graph_status_checked_at = None
+    db.commit()
+    return {"status": "disconnected"}
 
 
 @router.delete("/tasks")

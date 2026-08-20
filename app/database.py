@@ -90,6 +90,24 @@ def run_migrations():
                 ("b2_status", "ALTER TABLE settings ADD COLUMN b2_status TEXT"),
                 ("b2_status_detail", "ALTER TABLE settings ADD COLUMN b2_status_detail TEXT"),
                 ("b2_status_checked_at", "ALTER TABLE settings ADD COLUMN b2_status_checked_at DATETIME"),
+                ("imap_host", "ALTER TABLE settings ADD COLUMN imap_host TEXT"),
+                ("imap_port", "ALTER TABLE settings ADD COLUMN imap_port INTEGER DEFAULT 993"),
+                ("imap_username", "ALTER TABLE settings ADD COLUMN imap_username TEXT"),
+                ("imap_password", "ALTER TABLE settings ADD COLUMN imap_password TEXT"),
+                ("imap_folder", "ALTER TABLE settings ADD COLUMN imap_folder TEXT DEFAULT 'INBOX'"),
+                ("imap_status", "ALTER TABLE settings ADD COLUMN imap_status TEXT"),
+                ("imap_status_detail", "ALTER TABLE settings ADD COLUMN imap_status_detail TEXT"),
+                ("imap_status_checked_at", "ALTER TABLE settings ADD COLUMN imap_status_checked_at DATETIME"),
+                ("graph_client_id", "ALTER TABLE settings ADD COLUMN graph_client_id TEXT"),
+                ("graph_tenant_id", "ALTER TABLE settings ADD COLUMN graph_tenant_id TEXT"),
+                ("graph_folder", "ALTER TABLE settings ADD COLUMN graph_folder TEXT DEFAULT 'inbox'"),
+                ("graph_account", "ALTER TABLE settings ADD COLUMN graph_account TEXT"),
+                ("graph_access_token", "ALTER TABLE settings ADD COLUMN graph_access_token TEXT"),
+                ("graph_refresh_token", "ALTER TABLE settings ADD COLUMN graph_refresh_token TEXT"),
+                ("graph_token_expires_at", "ALTER TABLE settings ADD COLUMN graph_token_expires_at DATETIME"),
+                ("graph_status", "ALTER TABLE settings ADD COLUMN graph_status TEXT"),
+                ("graph_status_detail", "ALTER TABLE settings ADD COLUMN graph_status_detail TEXT"),
+                ("graph_status_checked_at", "ALTER TABLE settings ADD COLUMN graph_status_checked_at DATETIME"),
             ]
             for column, ddl in settings_migrations:
                 if column not in settings_columns:
@@ -137,6 +155,9 @@ def run_migrations():
             learn_item_migrations = [
                 ("checks", "ALTER TABLE learn_items ADD COLUMN checks TEXT"),
                 ("checked_at", "ALTER TABLE learn_items ADD COLUMN checked_at DATETIME"),
+                ("mode", "ALTER TABLE learn_items ADD COLUMN mode TEXT NOT NULL DEFAULT 'reading'"),
+                ("topic", "ALTER TABLE learn_items ADD COLUMN topic TEXT"),
+                ("plan", "ALTER TABLE learn_items ADD COLUMN plan TEXT"),
             ]
             for column, ddl in learn_item_migrations:
                 if column not in learn_item_columns:
@@ -146,6 +167,7 @@ def run_migrations():
         _seed_example_board(conn)
         _encrypt_legacy_secrets(conn)
         _create_missing_indexes(conn)
+        _migrate_flat_learn_plans(conn)
 
 
 # Mirrors the index=True columns declared in models.py. create_all() only creates indexes
@@ -196,6 +218,42 @@ def _seed_example_board(conn) -> None:
 def _create_missing_indexes(conn) -> None:
     for index_name, table, column in INDEXES:
         conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({column})"))
+    conn.commit()
+
+
+def _migrate_flat_learn_plans(conn) -> None:
+    """Wrap old flat-list Custom Topic plans (one lesson per entry) into the
+    sections->lessons shape, preserving any generated content/quiz/progress."""
+    table_names = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))]
+    if "learn_items" not in table_names:
+        return
+    rows = conn.execute(text("SELECT id, plan FROM learn_items WHERE mode = 'topic' AND plan IS NOT NULL")).fetchall()
+    for row_id, plan_json in rows:
+        try:
+            plan = json.loads(plan_json)
+        except (TypeError, ValueError):
+            continue
+        if not plan or "lessons" in plan[0]:
+            continue
+        sections = [
+            {
+                "title": lesson.get("title", ""),
+                "description": lesson.get("description", ""),
+                "teach_back_text": lesson.get("teach_back_text"),
+                "teach_back_feedback": lesson.get("teach_back_feedback"),
+                "lessons": [
+                    {
+                        "title": lesson.get("title", ""),
+                        "description": lesson.get("description", ""),
+                        "content": lesson.get("content"),
+                        "quiz": lesson.get("quiz", []),
+                        "completed": lesson.get("completed", False),
+                    }
+                ],
+            }
+            for lesson in plan
+        ]
+        conn.execute(text("UPDATE learn_items SET plan = :plan WHERE id = :id"), {"plan": json.dumps(sections), "id": row_id})
     conn.commit()
 
 
